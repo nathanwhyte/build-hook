@@ -65,6 +65,7 @@ name = "build-hook"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "tokio",
 ]
 
 [[package]]
