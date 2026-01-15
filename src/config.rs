@@ -24,6 +24,7 @@ pub struct ProjectConfig {
 pub struct CodeConfig {
     url: String,
     branch: String,
+    public: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,6 +76,8 @@ fn validate(config: &Config) -> Result<(), String> {
             return Err("project.code.branch must not be empty!".to_string());
         }
 
+        // project.code.public is a boolean, no need to validate
+
         // project.image.repository should not be empty
         if project.image.repository.trim().is_empty() {
             return Err("project.image.repository must not be empty!".to_string());
@@ -118,6 +121,7 @@ fn log(value: &Config) {
         println!("Project: {}", project.name);
         println!("  Code URL: {}", project.code.url);
         println!("  Code Branch: {}", project.code.branch);
+        println!("  Code is Public: {}", project.code.public);
         println!("  Image Repository: {}", project.image.repository);
         println!("  Image Tag: {}", project.image.tag);
         println!("  Deployment Namespace: {}", project.deployments.namespace);
