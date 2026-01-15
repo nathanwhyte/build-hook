@@ -4,7 +4,7 @@ use url::Url;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     app: AppConfig,
-    project: Vec<ProjectConfig>,
+    projects: Vec<ProjectConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,7 +62,7 @@ fn validate(config: &Config) -> Result<(), String> {
     // app.registry should be a valid HTTPS URL
     validate_url(&config.app.registry, "app.registry")?;
 
-    for project in &config.project {
+    for project in &config.projects {
         // project.name should not be empty
         if project.name.trim().is_empty() {
             return Err("project.name must not be empty!".to_string());
@@ -116,7 +116,7 @@ fn log(value: &Config) {
     println!("---");
     println!("Image Registry Base URL: {}", value.app.registry);
 
-    for project in &value.project {
+    for project in &value.projects {
         println!("\n---");
         println!("Project: {}", project.name);
         println!("  Code URL: {}", project.code.url);
