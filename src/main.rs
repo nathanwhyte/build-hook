@@ -14,7 +14,10 @@ async fn main() {
     //     .collect::<Vec<String>>();
 
     // read in env and config
-    config::load();
+    let _config = match config::load() {
+        Ok(cfg) => cfg,
+        Err(e) => panic!("Could not load config: {}", e),
+    };
 
     // build our application with a single route
     // let app = Router::new().route("/", post(|| async { "Hello, World!" }));
