@@ -1,0 +1,149 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: build
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hook-config
+  namespace: build
+data:
+  config.toml: |
+    [app]
+    registry = "https://registry.nathanwhyte.dev"
+    cache = false
+
+    [[projects]]
+    name = "Credit Coach"
+
+    [projects.code]
+    url = "https://github.com/nathanwhyte/credit-coach"
+    branch = "main"
+    public = false
+
+    [projects.image]
+    repository = "equal-risk"
+    tag = "release"
+
+    [projects.deployments]
+    namespace = "coach"
+    resources = ["deployment/credit-coach", "deployment/scrub"]
+
+    [[projects]]
+    name = "Equal Risk Portfolio Calculator"
+
+    [projects.code]
+    url = "https://github.com/nathanwhyte/equal-risk-portfolio"
+    branch = "main"
+    public = true
+
+    [projects.image]
+    repository = "coach"
+    tag = "logs"
+
+    [projects.deployments]
+    namespace = "equal-risk"
+    resources = ["deployment/equal-risk-rails", "deployment/equal-risk-math"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hook
+  namespace: build
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hook
+  template:
+    metadata:
+      labels:
+        app: hook
+    spec:
+      containers:
+        - name: hook
+          image: registry.nathanwhyte.dev/build-hook/api:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          imagePullPolicy: Always
+          env:
+            - name: BEARER_TOKENS
+              value: token12345,token67890
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.toml
+              subPath: config.toml
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: hook-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hook
+  namespace: build
+spec:
+  type: ClusterIP
+  selector:
+    app: hook
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tunnel
+  namespace: build
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tunnel
+  template:
+    metadata:
+      labels:
+        app: tunnel
+    spec:
+      containers:
+        - name: tunnel
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+            - --token-file
+            - /etc/cloudflared/token
+          volumeMounts:
+            - name: cloudflared-token
+              mountPath: /etc/cloudflared
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: cloudflared-token
+          secret:
+            secretName: cloudflared-token
