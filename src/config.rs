@@ -10,6 +10,7 @@ pub struct Config {
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
     registry: String,
+    cache: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,7 +115,8 @@ fn validate_url(url: &str, field: &str) -> Result<(), String> {
 
 fn log(value: &Config) {
     println!("---");
-    println!("Image Registry Base URL: {}", value.app.registry);
+    println!("Image Registry URL: {}", value.app.registry);
+    println!("Cache Builds: {}", value.app.cache);
 
     for project in &value.projects {
         println!("\n---");
