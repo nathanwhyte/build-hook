@@ -1,0 +1,14 @@
+name: Curl Example
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  curl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl `hook`
+        run: curl -s -X POST https://build.nathanwhyte.dev | xargs echo
