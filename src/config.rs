@@ -114,20 +114,20 @@ fn validate_url(url: &str, field: &str) -> Result<(), String> {
 }
 
 fn log(value: &Config) {
-    println!("---");
-    println!("Image Registry URL: {}", value.app.registry);
-    println!("Cache Builds: {}", value.app.cache);
+    tracing::debug!("---");
+    tracing::debug!("Image Registry URL: {}", value.app.registry);
+    tracing::debug!("Cache Builds: {}", value.app.cache);
 
     for project in &value.projects {
-        println!("\n---");
-        println!("Project: {}", project.name);
-        println!("  Code URL: {}", project.code.url);
-        println!("  Code Branch: {}", project.code.branch);
-        println!("  Code is Public: {}", project.code.public);
-        println!("  Image Repository: {}", project.image.repository);
-        println!("  Image Tag: {}", project.image.tag);
-        println!("  Deployment Namespace: {}", project.deployments.namespace);
-        println!(
+        tracing::debug!("---");
+        tracing::debug!("Project: {}", project.name);
+        tracing::debug!("  Code URL: {}", project.code.url);
+        tracing::debug!("  Code Branch: {}", project.code.branch);
+        tracing::debug!("  Code is Public: {}", project.code.public);
+        tracing::debug!("  Image Repository: {}", project.image.repository);
+        tracing::debug!("  Image Tag: {}", project.image.tag);
+        tracing::debug!("  Deployment Namespace: {}", project.deployments.namespace);
+        tracing::debug!(
             "  Deployment Resources: {:?}",
             project.deployments.resources
         );
