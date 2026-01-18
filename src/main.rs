@@ -11,6 +11,14 @@ async fn main() {
         Err(e) => panic!("Could not load config: {}", e),
     };
 
+    let output = std::process::Command::new("kubectl")
+        .arg("version")
+        .output()
+        .expect("Failed to execute command");
+
+    println!("\n---");
+    println!("Output: {}", String::from_utf8_lossy(&output.stdout));
+
     // build our application with a single route
     // let app = Router::new().route("/", post(|| async { "Hello, World!" }));
 
