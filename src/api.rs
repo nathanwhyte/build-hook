@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     middleware,
-    response::{IntoResponse, Response, Json},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
 };
 use tower_http::trace::TraceLayer;
@@ -19,7 +19,11 @@ impl IntoResponse for BuildHookResponse {
     fn into_response(self) -> Response {
         // State is accessed here in the IntoResponse implementation
         let current_user = auth::USER.with(|u| u.clone());
-        (StatusCode::OK, current_user.id).into_response()
+        (
+            StatusCode::OK,
+            format!("Hi there, user `{}`", current_user.id),
+        )
+            .into_response()
     }
 }
 
@@ -33,8 +37,7 @@ pub async fn start(config: config::Config) {
     let app_state = Arc::new(AppState { config });
 
     // Public routes (no auth required)
-    let public_routes = Router::new()
-        .route("/health", get(healthcheck));
+    let public_routes = Router::new().route("/health", get(healthcheck));
 
     // Protected routes (auth required)
     let protected_routes = Router::new()

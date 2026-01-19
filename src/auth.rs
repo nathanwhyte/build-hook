@@ -76,7 +76,6 @@ pub async fn auth_layer(req: Request, next: Next) -> Response {
     let user = match authorize_bearer(token).await {
         Some(user) => user,
         None => {
-            tracing::warn!("Invalid bearer token");
             return (
                 StatusCode::UNAUTHORIZED,
                 "Unauthorized: Invalid or missing bearer token",
