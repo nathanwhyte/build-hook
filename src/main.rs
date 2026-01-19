@@ -1,6 +1,7 @@
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod api;
+mod auth;
 mod config;
 
 #[tokio::main]
@@ -14,10 +15,6 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // read in comma-separated list of bearer tokens from env
-    tracing::debug!("Loading bearer tokens...");
-    let bearer_tokens = load_env();
-
     // read in env and config
     tracing::debug!("Loading config...");
     let config = match config::load() {
@@ -25,20 +22,5 @@ async fn main() {
         Err(e) => panic!("Could not load config: {}", e),
     };
 
-    api::start(bearer_tokens, config).await;
-}
-
-fn load_env() -> Vec<String> {
-    // NOTE: temporary, bacon doesn't support env in `run` jobs
-    let tokens_string = std::env::var("BEARER_TOKENS").unwrap_or("token12345".to_string());
-
-    // let tokens_string = match std::env::var("BEARER_TOKENS") {
-    //     Ok(tokens) => tokens,
-    //     Err(_) => panic!("No BEARER_TOKENS environment variable set!"),
-    // };
-
-    tokens_string
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<String>>()
+    api::start(config).await;
 }
