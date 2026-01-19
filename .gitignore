@@ -2,3 +2,6 @@
 
 # require that config.toml is loaded in from Kubernetes
 config.toml
+
+# ingore build cache
+cache/

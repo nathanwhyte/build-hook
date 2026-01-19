@@ -79,6 +79,8 @@ spec:
               mountPath: /app/config.toml
               subPath: config.toml
               readOnly: true
+            - name: cache
+              mountPath: /cache
           resources:
             requests:
               cpu: 100m
@@ -87,6 +89,10 @@ spec:
               cpu: 500m
               memory: 512Mi
       volumes:
+        - name: cache
+          hostPath:
+            path: /data/build-cache
+            type: DirectoryOrCreate
         - name: config
           configMap:
             name: hook-config
