@@ -1,5 +1,7 @@
 mod repo;
 
+use std::path::Path;
+
 use serde::Deserialize;
 use url::Url;
 
@@ -89,6 +91,15 @@ impl ProjectConfig {
         tracing::debug!("  Image Tag: {}", self.image.tag);
         tracing::debug!("  Deployment Namespace: {}", self.deployments.namespace);
         tracing::debug!("  Deployment Resources: {:?}", self.deployments.resources);
+    }
+
+    pub fn build(&self, cache: bool) {
+        let repo_dest = match cache {
+            true => format!("/cache/{}", self.slug),
+            false => format!("/tmp/{}", self.slug),
+        };
+
+        let _repo = repo::clone(&self.code.url, &repo_dest);
     }
 
     pub fn slug(&self) -> &str {
