@@ -14,7 +14,7 @@ data:
   config.toml: |
     [app]
     registry = "https://registry.nathanwhyte.dev"
-    cache = false
+    cache = true
 
     [[projects]]
     name = "Credit Coach"
@@ -26,7 +26,7 @@ data:
     public = false
 
     [projects.image]
-    repository = "equal-risk"
+    repository = "coach"
     tag = "release"
 
     [projects.deployments]
@@ -35,7 +35,7 @@ data:
 
     [[projects]]
     name = "Equal Risk Portfolio Calculator"
-    slug = "equal-risk-portfolio"
+    slug = "equal-risk"
 
     [projects.code]
     url = "https://github.com/nathanwhyte/equal-risk-portfolio"
