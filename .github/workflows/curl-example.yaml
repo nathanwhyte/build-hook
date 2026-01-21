@@ -11,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Curl `hook`
-        run: curl -s -X POST https://build.nathanwhyte.dev | xargs echo
+        run: curl -s -X GET https://build.nathanwhyte.dev/health | xargs echo
