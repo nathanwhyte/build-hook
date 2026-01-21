@@ -28,10 +28,10 @@ impl IntoResponse for BuildHookResponse {
 }
 
 pub struct AppState {
-    pub config: config::Config,
+    config: config::HookConfig,
 }
 
-pub async fn start(config: config::Config) {
+pub async fn start(config: config::HookConfig) {
     // TODO: create a route per configured project
 
     let app_state = Arc::new(AppState { config });
@@ -67,12 +67,13 @@ async fn handler(
     Path(slug): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> BuildHookResponse {
-    match state.config.get(&slug) {
-        Some(project_config) => {
+    match state.config.projects.get(&slug) {
+        Some(project) => {
             tracing::info!(
                 "Received build hook for project `{}`, building...",
-                project_config.slug()
+                project.slug()
             );
+            project.build(state.config.app.cache);
             BuildHookResponse
         }
         None => {

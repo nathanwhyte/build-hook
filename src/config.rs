@@ -13,13 +13,16 @@ pub struct ConfigFile {
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    registry: String,
-    cache: bool,
+    pub registry: String,
+    pub cache: bool,
 }
 
-pub type Config = HashMap<String, ProjectConfig>;
+pub struct HookConfig {
+    pub app: AppConfig,
+    pub projects: HashMap<String, ProjectConfig>,
+}
 
-pub fn load() -> Result<Config, String> {
+pub fn load() -> Result<HookConfig, String> {
     // read projects config file
     let file_string = match std::fs::read_to_string("config.toml") {
         Ok(contents) => contents,
@@ -33,13 +36,18 @@ pub fn load() -> Result<Config, String> {
 
     validate(&config_file)?;
 
-    let mut config: Config = HashMap::new();
+    let mut config: HashMap<String, ProjectConfig> = HashMap::new();
 
     config_file.projects.into_iter().for_each(|project| {
         config.insert(project.slug().to_owned(), project);
     });
 
-    log(&config_file.app, &config);
+    let config = HookConfig {
+        app: config_file.app,
+        projects: config,
+    };
+
+    log(&config);
 
     Ok(config)
 }
@@ -61,13 +69,13 @@ fn validate(config: &ConfigFile) -> Result<(), String> {
     Ok(())
 }
 
-fn log(app_config: &AppConfig, config_map: &Config) {
-    tracing::debug!("Image registry: {}", app_config.registry);
-    tracing::debug!("Builds should be cached: {}", app_config.cache);
+fn log(config: &HookConfig) {
+    tracing::debug!("Image registry: {}", config.app.registry);
+    tracing::debug!("Builds should be cached: {}", config.app.cache);
 
-    tracing::debug!("Loaded {} project(s):", config_map.len());
+    tracing::debug!("Loaded {} project(s):", config.projects.len());
 
-    for project in config_map.values() {
+    for project in config.projects.values() {
         project.log();
     }
 }
