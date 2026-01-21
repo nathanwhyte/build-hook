@@ -53,8 +53,6 @@ pub async fn start(config: config::Config) {
 
     tracing::info!("Server starting on 0.0.0.0:3000");
 
-    // TODO: use the k8s buildx target for image builds
-
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
@@ -73,7 +71,7 @@ async fn handler(
         Some(project_config) => {
             tracing::info!(
                 "Received build hook for project `{}`, building...",
-                project_config.name
+                project_config.slug()
             );
             BuildHookResponse
         }
