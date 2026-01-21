@@ -1,7 +1,5 @@
 mod repo;
 
-use std::path::Path;
-
 use serde::Deserialize;
 use url::Url;
 
@@ -99,7 +97,7 @@ impl ProjectConfig {
             false => format!("/tmp/{}", self.slug),
         };
 
-        let _repo = repo::clone(&self.code.url, &repo_dest);
+        let _repo = repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
     }
 
     pub fn slug(&self) -> &str {
