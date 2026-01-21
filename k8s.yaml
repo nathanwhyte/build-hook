@@ -18,6 +18,7 @@ data:
 
     [[projects]]
     name = "Credit Coach"
+    slug = "credit-coach"
 
     [projects.code]
     url = "https://github.com/nathanwhyte/credit-coach"
@@ -34,6 +35,7 @@ data:
 
     [[projects]]
     name = "Equal Risk Portfolio Calculator"
+    slug = "equal-risk-portfolio"
 
     [projects.code]
     url = "https://github.com/nathanwhyte/equal-risk-portfolio"
