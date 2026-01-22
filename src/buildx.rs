@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Output};
 
 const BUILDER_NAME: &str = "builder";
 const NAMESPACE: &str = "build";
@@ -37,6 +37,29 @@ pub fn initialize() -> Result<(), String> {
     Ok(())
 }
 
+fn run_command_output(command: &mut Command, description: &str) -> Result<Output, String> {
+    let output = command
+        .output()
+        .map_err(|e| format!("Failed to run {}: {}", description, e))?;
+
+    if !output.stdout.is_empty() {
+        tracing::debug!(
+            "{} stdout: {}",
+            description,
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+    if !output.status.success() && !output.stderr.is_empty() {
+        tracing::warn!(
+            "{} stderr: {}",
+            description,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    Ok(output)
+}
+
 fn setup_kubeconfig() -> Result<(), String> {
     let token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token";
     if !Path::new(token_path).exists() {
@@ -56,56 +79,72 @@ fn setup_kubeconfig() -> Result<(), String> {
     let kubeconfig_path = "/tmp/kubeconfig";
 
     // Set cluster
-    Command::new("kubectl")
-        .args(&[
-            "config",
-            "set-cluster",
-            "k8s",
-            "--server",
-            &format!("https://{}", server),
-        ])
-        .args(&["--certificate-authority", ca_cert])
-        .env("KUBECONFIG", kubeconfig_path)
-        .output()
-        .map_err(|e| format!("Failed to set cluster: {}", e))?;
+    let output = run_command_output(
+        Command::new("kubectl")
+            .args([
+                "config",
+                "set-cluster",
+                "k8s",
+                "--server",
+                &format!("https://{}", server),
+            ])
+            .args(["--certificate-authority", ca_cert])
+            .env("KUBECONFIG", kubeconfig_path),
+        "kubectl set-cluster",
+    )?;
+    if !output.status.success() {
+        return Err("Failed to set cluster".to_string());
+    }
 
     // Set credentials
-    Command::new("kubectl")
-        .args(&["config", "set-credentials", "k8s", "--token", &token])
-        .env("KUBECONFIG", kubeconfig_path)
-        .output()
-        .map_err(|e| format!("Failed to set credentials: {}", e))?;
+    let output = run_command_output(
+        Command::new("kubectl")
+            .args(["config", "set-credentials", "k8s", "--token", &token])
+            .env("KUBECONFIG", kubeconfig_path),
+        "kubectl set-credentials",
+    )?;
+    if !output.status.success() {
+        return Err("Failed to set credentials".to_string());
+    }
 
     // Set context
-    Command::new("kubectl")
-        .args(&[
-            "config",
-            "set-context",
-            "k8s",
-            "--cluster",
-            "k8s",
-            "--user",
-            "k8s",
-        ])
-        .env("KUBECONFIG", kubeconfig_path)
-        .output()
-        .map_err(|e| format!("Failed to set context: {}", e))?;
+    let output = run_command_output(
+        Command::new("kubectl")
+            .args([
+                "config",
+                "set-context",
+                "k8s",
+                "--cluster",
+                "k8s",
+                "--user",
+                "k8s",
+            ])
+            .env("KUBECONFIG", kubeconfig_path),
+        "kubectl set-context",
+    )?;
+    if !output.status.success() {
+        return Err("Failed to set context".to_string());
+    }
 
     // Use context
-    Command::new("kubectl")
-        .args(&["config", "use-context", "k8s"])
-        .env("KUBECONFIG", kubeconfig_path)
-        .output()
-        .map_err(|e| format!("Failed to use context: {}", e))?;
+    let output = run_command_output(
+        Command::new("kubectl")
+            .args(["config", "use-context", "k8s"])
+            .env("KUBECONFIG", kubeconfig_path),
+        "kubectl use-context",
+    )?;
+    if !output.status.success() {
+        return Err("Failed to use context".to_string());
+    }
 
     Ok(())
 }
 
 fn check_builder_exists() -> Result<bool, String> {
-    let output = Command::new("docker")
-        .args(&["buildx", "ls"])
-        .output()
-        .map_err(|e| format!("Failed to list buildx builders: {}", e))?;
+    let output = run_command_output(
+        Command::new("docker").args(["buildx", "ls"]),
+        "docker buildx ls",
+    )?;
 
     if !output.status.success() {
         return Err(format!(
@@ -119,24 +158,22 @@ fn check_builder_exists() -> Result<bool, String> {
 }
 
 fn use_builder() -> Result<(), String> {
-    let output = Command::new("docker")
-        .args(&["buildx", "use", BUILDER_NAME])
-        .output()
-        .map_err(|e| format!("Failed to use builder: {}", e))?;
+    let output = run_command_output(
+        Command::new("docker").args(["buildx", "use", BUILDER_NAME]),
+        "docker buildx use",
+    )?;
 
     if !output.status.success() {
-        return Err(format!(
-            "Failed to use builder: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err("Failed to use builder".to_string());
     }
 
     Ok(())
 }
 
 fn create_builder() -> Result<(), String> {
-    let output = Command::new("docker")
-        .args(&[
+    let mut command = Command::new("docker");
+    command
+        .args([
             "buildx",
             "create",
             "--driver",
@@ -144,32 +181,32 @@ fn create_builder() -> Result<(), String> {
             "--name",
             BUILDER_NAME,
         ])
-        .args(&["--driver-opt", &format!("namespace={}", NAMESPACE)])
-        .args(&["--use"])
-        .output()
-        .map_err(|e| format!("Failed to create buildx builder: {}", e))?;
+        .args(["--driver-opt", &format!("namespace={}", "build")])
+        .args(["--driver-opt", &format!("replicas={}", 2)])
+        .args(["--driver-opt", &format!("requests.cpu={}", "500m")])
+        .args(["--driver-opt", &format!("requests.memory={}", "1Gi")])
+        .args(["--driver-opt", &format!("limits.cpu={}", "2")])
+        .args(["--driver-opt", &format!("limits.memory={}", "4Gi")]);
+
+    command.args(["--use"]);
+
+    let output = run_command_output(&mut command, "docker buildx create")?;
 
     if !output.status.success() {
-        return Err(format!(
-            "Failed to create builder: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err("Failed to create builder".to_string());
     }
 
     Ok(())
 }
 
 fn bootstrap_builder() -> Result<(), String> {
-    let output = Command::new("docker")
-        .args(&["buildx", "inspect", "--bootstrap"])
-        .output()
-        .map_err(|e| format!("Failed to bootstrap builder: {}", e))?;
+    let output = run_command_output(
+        Command::new("docker").args(["buildx", "inspect", "--bootstrap"]),
+        "docker buildx inspect --bootstrap",
+    )?;
 
     if !output.status.success() {
-        return Err(format!(
-            "Failed to bootstrap builder: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err("Failed to bootstrap builder".to_string());
     }
 
     Ok(())

@@ -101,16 +101,13 @@ impl ProjectConfig {
         repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
 
         // Construct image tag: <registry>/<slug>/<repository>:<tag>
-        let image_tag = format!(
-            "{}/{}/{}:{}",
-            registry, self.slug, self.image.repository, self.image.tag
-        );
+        let image_tag = format!("{}/{}:{}", registry, self.image.repository, self.image.tag);
 
         tracing::info!("building {}", image_tag);
 
         // Execute docker buildx build --push with amd64 platform in the background
         let mut child = std::process::Command::new("docker")
-            .args(&[
+            .args([
                 "buildx",
                 "build",
                 "--builder",
@@ -122,9 +119,8 @@ impl ProjectConfig {
                 &image_tag,
                 &repo_dest,
             ])
-            // NOTE: removing these pipes output as if the build was run directly
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
             .spawn()
             .map_err(|e| format!("Failed to execute docker buildx: {}", e))?;
 
@@ -153,6 +149,17 @@ impl ProjectConfig {
         // Spawn background task to handle build completion
         std::thread::spawn(move || {
             handle_build_completion(child, image_tag_clone);
+
+            if !cache {
+                // If not caching, remove the cloned repository after the build
+                if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
+                    tracing::warn!(
+                        "Failed to remove temporary repository directory {}: {}",
+                        repo_dest,
+                        e
+                    );
+                }
+            }
         });
 
         Ok(())
@@ -163,21 +170,35 @@ impl ProjectConfig {
     }
 }
 
-fn handle_build_completion(mut child: std::process::Child, image_tag: String) {
-    // Wait for process to complete
-    let status = match child.wait() {
-        Ok(s) => s,
+fn handle_build_completion(child: std::process::Child, image_tag: String) {
+    let output = match child.wait_with_output() {
+        Ok(output) => output,
         Err(e) => {
             tracing::error!("Failed to wait for build process: {}", e);
             return;
         }
     };
 
-    if !status.success() {
+    if !output.stdout.is_empty() {
+        tracing::debug!(
+            "Build stdout for {}: {}",
+            image_tag,
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+    if !output.status.success() && !output.stderr.is_empty() {
+        tracing::warn!(
+            "Build stderr for {}: {}",
+            image_tag,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    if !output.status.success() {
         tracing::error!(
             "Build failed for {} with exit code: {:?}",
             image_tag,
-            status.code()
+            output.status.code()
         );
     } else {
         tracing::info!("Successfully built and pushed image: {}", image_tag);
