@@ -1,3 +1,4 @@
+mod image;
 mod repo;
 
 use serde::Deserialize;
@@ -131,7 +132,7 @@ impl ProjectConfig {
         // Clone repository
         repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
 
-        let mut image_builds: Vec<BuildImage> = self
+        let image_builds: Vec<image::BuildImage> = self
             .image
             .iter()
             .map(|image| {
@@ -142,7 +143,7 @@ impl ProjectConfig {
                     .unwrap_or_else(|| Path::new(&repo_dest))
                     .to_string_lossy()
                     .to_string();
-                BuildImage {
+                image::BuildImage {
                     tag,
                     dockerfile_path: dockerfile_path.to_string_lossy().to_string(),
                     context_dir,
@@ -150,160 +151,10 @@ impl ProjectConfig {
             })
             .collect();
 
-        for build in &image_builds {
-            if !Path::new(&build.dockerfile_path).is_file() {
-                return Err(format!(
-                    "Dockerfile for {} not found at {}",
-                    build.tag, build.dockerfile_path
-                ));
-            }
-        }
-
-        let first_build = image_builds
-            .drain(0..1)
-            .next()
-            .ok_or_else(|| "project.image must have at least one entry!".to_string())?;
-
-        tracing::info!(
-            "building {} using {}",
-            first_build.tag,
-            first_build.dockerfile_path
-        );
-
-        let mut child = spawn_build(
-            &first_build.context_dir,
-            &first_build.tag,
-            &first_build.dockerfile_path,
-        )?;
-        verify_build_started(&mut child)?;
-
-        // Spawn background task to handle build completion
-        std::thread::spawn(move || {
-            handle_build_completion(child, first_build.tag);
-
-            for build in image_builds {
-                tracing::info!("building {} using {}", build.tag, build.dockerfile_path);
-                match spawn_build(&build.context_dir, &build.tag, &build.dockerfile_path) {
-                    Ok(mut next_child) => {
-                        if let Err(e) = verify_build_started(&mut next_child) {
-                            tracing::error!(
-                                "Build process for {} exited immediately: {}",
-                                build.tag,
-                                e
-                            );
-                            break;
-                        }
-                        handle_build_completion(next_child, build.tag);
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to start build for {}: {}", build.tag, e);
-                        break;
-                    }
-                }
-            }
-
-            if !cache {
-                // If not caching, remove the cloned repository after the builds
-                if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
-                    tracing::warn!(
-                        "Failed to remove temporary repository directory {}: {}",
-                        repo_dest,
-                        e
-                    );
-                }
-            }
-        });
-
-        Ok(())
+        image::build_images(image_builds, cache, repo_dest)
     }
 
     pub fn slug(&self) -> &str {
         &self.slug
-    }
-}
-
-struct BuildImage {
-    tag: String,
-    dockerfile_path: String,
-    context_dir: String,
-}
-
-fn spawn_build(
-    context_dir: &str,
-    image_tag: &str,
-    dockerfile_path: &str,
-) -> Result<std::process::Child, String> {
-    std::process::Command::new("docker")
-        .args([
-            "buildx",
-            "build",
-            "--builder",
-            "builder",
-            "--platform",
-            "linux/amd64",
-            "--push",
-            "-t",
-            image_tag,
-            "--file",
-            dockerfile_path,
-            context_dir,
-        ])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .spawn()
-        .map_err(|e| format!("Failed to execute docker buildx: {}", e))
-}
-
-fn verify_build_started(child: &mut std::process::Child) -> Result<(), String> {
-    match child.try_wait() {
-        Ok(Some(status)) => {
-            if !status.success() {
-                return Err(format!(
-                    "Build process exited immediately with code: {:?}",
-                    status.code()
-                ));
-            }
-        }
-        Ok(None) => {}
-        Err(e) => {
-            return Err(format!("Failed to check build process status: {}", e));
-        }
-    }
-
-    Ok(())
-}
-
-fn handle_build_completion(child: std::process::Child, image_tag: String) {
-    let output = match child.wait_with_output() {
-        Ok(output) => output,
-        Err(e) => {
-            tracing::error!("Failed to wait for build process: {}", e);
-            return;
-        }
-    };
-
-    if !output.stdout.is_empty() {
-        tracing::debug!(
-            "Build stdout for {}: {}",
-            image_tag,
-            String::from_utf8_lossy(&output.stdout)
-        );
-    }
-    if !output.status.success() && !output.stderr.is_empty() {
-        tracing::warn!(
-            "Build stderr for {}: {}",
-            image_tag,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    if !output.status.success() {
-        tracing::error!(
-            "Build failed for {} with exit code: {:?}",
-            image_tag,
-            output.status.code()
-        );
-    } else {
-        tracing::info!("Successfully built and pushed image: {}", image_tag);
     }
 }
