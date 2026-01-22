@@ -106,15 +106,9 @@ impl ProjectConfig {
             registry, self.slug, self.image.repository, self.image.tag
         );
 
-        tracing::info!("Building and pushing image: {}", image_tag);
-        tracing::info!("Build context: {}", repo_dest);
-        tracing::info!(
-            "Executing: docker buildx build --builder builder --platform linux/amd64 --push -t {} {}",
-            image_tag,
-            repo_dest
-        );
+        tracing::info!("building {}", image_tag);
 
-        // Execute docker buildx build --push with amd64 platform, streaming output
+        // Execute docker buildx build --push with amd64 platform in the background
         let mut child = std::process::Command::new("docker")
             .args(&[
                 "buildx",
@@ -128,8 +122,9 @@ impl ProjectConfig {
                 &image_tag,
                 &repo_dest,
             ])
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
+            // NOTE: removing these pipes output as if the build was run directly
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| format!("Failed to execute docker buildx: {}", e))?;
 
@@ -153,17 +148,12 @@ impl ProjectConfig {
             }
         }
 
-        // Stream stdout and stderr using tracing in background
-        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
         let image_tag_clone = image_tag.clone();
 
         // Spawn background task to handle build completion
         std::thread::spawn(move || {
-            handle_build_completion(child, stdout, stderr, image_tag_clone);
+            handle_build_completion(child, image_tag_clone);
         });
-
-        tracing::info!("Build started successfully for image: {}", image_tag);
 
         Ok(())
     }
@@ -173,34 +163,7 @@ impl ProjectConfig {
     }
 }
 
-fn handle_build_completion(
-    mut child: std::process::Child,
-    stdout: std::process::ChildStdout,
-    stderr: std::process::ChildStderr,
-    image_tag: String,
-) {
-    // Stream stdout
-    let stdout_handle = std::thread::spawn(move || {
-        use std::io::{BufRead, BufReader};
-        let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                tracing::info!("[build] {}", line);
-            }
-        }
-    });
-
-    // Stream stderr
-    let stderr_handle = std::thread::spawn(move || {
-        use std::io::{BufRead, BufReader};
-        let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                tracing::debug!("[build] {}", line);
-            }
-        }
-    });
-
+fn handle_build_completion(mut child: std::process::Child, image_tag: String) {
     // Wait for process to complete
     let status = match child.wait() {
         Ok(s) => s,
@@ -209,10 +172,6 @@ fn handle_build_completion(
             return;
         }
     };
-
-    // Wait for streaming threads to finish
-    stdout_handle.join().ok();
-    stderr_handle.join().ok();
 
     if !status.success() {
         tracing::error!(
