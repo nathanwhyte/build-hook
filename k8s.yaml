@@ -69,6 +69,11 @@ data:
     location = "Dockerfile"
     tag = "release"
 
+    [[projects.image]]
+    repository = "coach/scrub"
+    location = "scrub/Dockerfile"
+    tag = "release"
+
     [projects.deployments]
     namespace = "coach"
     resources = ["deployment/credit-coach", "deployment/scrub"]
@@ -141,6 +146,11 @@ spec:
           env:
             - name: BEARER_TOKENS
               value: token12345,token67890
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-access-token
+                  key: GITHUB_TOKEN
           volumeMounts:
             - name: config
               mountPath: /app/config.toml
