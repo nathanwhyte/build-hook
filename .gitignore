@@ -5,3 +5,4 @@ config.toml
 
 # ingore build cache
 cache/
+k8s.secrets.yaml
