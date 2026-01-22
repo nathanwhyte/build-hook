@@ -211,7 +211,7 @@ spec:
             - --token-file
             - /etc/cloudflared/token
           volumeMounts:
-            - name: hook-cloudflared-token
+            - name: tokenfile
               mountPath: /etc/cloudflared
               readOnly: true
           resources:
@@ -222,6 +222,9 @@ spec:
               cpu: 200m
               memory: 256Mi
       volumes:
-        - name: hook-cloudflared-token
+        - name: tokenfile
           secret:
             secretName: hook-cloudflared-token
+            items:
+              - key: TOKEN
+                path: token
