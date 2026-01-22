@@ -139,7 +139,10 @@ impl ProjectConfig {
             Ok(Some(status)) => {
                 // Process already exited
                 if !status.success() {
-                    return Err(format!("Build process exited immediately with code: {:?}", status.code()));
+                    return Err(format!(
+                        "Build process exited immediately with code: {:?}",
+                        status.code()
+                    ));
                 }
             }
             Ok(None) => {
@@ -157,57 +160,67 @@ impl ProjectConfig {
 
         // Spawn background task to handle build completion
         std::thread::spawn(move || {
-            // Stream stdout
-            let stdout_handle = std::thread::spawn(move || {
-                use std::io::{BufRead, BufReader};
-                let reader = BufReader::new(stdout);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        tracing::info!("[build] {}", line);
-                    }
-                }
-            });
-
-            // Stream stderr
-            let stderr_handle = std::thread::spawn(move || {
-                use std::io::{BufRead, BufReader};
-                let reader = BufReader::new(stderr);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        tracing::debug!("[build] {}", line);
-                    }
-                }
-            });
-
-            // Wait for process to complete
-            let status = match child.wait() {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::error!("Failed to wait for build process: {}", e);
-                    return;
-                }
-            };
-
-            // Wait for streaming threads to finish
-            stdout_handle.join().ok();
-            stderr_handle.join().ok();
-
-            if !status.success() {
-                tracing::error!(
-                    "Build failed for {} with exit code: {:?}",
-                    image_tag_clone,
-                    status.code()
-                );
-            } else {
-                tracing::info!("Successfully built and pushed image: {}", image_tag_clone);
-            }
+            handle_build_completion(child, stdout, stderr, image_tag_clone);
         });
 
         tracing::info!("Build started successfully for image: {}", image_tag);
+
         Ok(())
     }
 
     pub fn slug(&self) -> &str {
         &self.slug
+    }
+}
+
+fn handle_build_completion(
+    mut child: std::process::Child,
+    stdout: std::process::ChildStdout,
+    stderr: std::process::ChildStderr,
+    image_tag: String,
+) {
+    // Stream stdout
+    let stdout_handle = std::thread::spawn(move || {
+        use std::io::{BufRead, BufReader};
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                tracing::info!("[build] {}", line);
+            }
+        }
+    });
+
+    // Stream stderr
+    let stderr_handle = std::thread::spawn(move || {
+        use std::io::{BufRead, BufReader};
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                tracing::debug!("[build] {}", line);
+            }
+        }
+    });
+
+    // Wait for process to complete
+    let status = match child.wait() {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!("Failed to wait for build process: {}", e);
+            return;
+        }
+    };
+
+    // Wait for streaming threads to finish
+    stdout_handle.join().ok();
+    stderr_handle.join().ok();
+
+    if !status.success() {
+        tracing::error!(
+            "Build failed for {} with exit code: {:?}",
+            image_tag,
+            status.code()
+        );
+    } else {
+        tracing::info!("Successfully built and pushed image: {}", image_tag);
     }
 }

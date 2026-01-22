@@ -20,8 +20,8 @@ RUN mkdir -p /root/.docker/cli-plugins/ && \
 
 FROM rust:1.92-slim AS builder
 
-# Install OpenSSL development libraries and pkg-config
-RUN apt-get update && apt-get install -y libssl-dev pkg-config && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL development libraries, pkg-config, and git (for build metadata)
+RUN apt-get update && apt-get install -y libssl-dev pkg-config
 
 # compile Rust binary
 WORKDIR /usr/src/build-hook
@@ -29,7 +29,7 @@ COPY . .
 RUN cargo install --path .
 
 FROM debian:trixie-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates git
 COPY --from=binaries /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=binaries /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=binaries /root/.docker/cli-plugins/docker-buildx /root/.docker/cli-plugins/docker-buildx

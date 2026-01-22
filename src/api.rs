@@ -81,7 +81,11 @@ async fn handler(
                     );
                 }
                 Err(e) => {
-                    tracing::error!("Failed to start build for project `{}`: {}", project.slug(), e);
+                    tracing::error!(
+                        "Failed to start build for project `{}`: {}",
+                        project.slug(),
+                        e
+                    );
                 }
             }
             BuildHookResponse

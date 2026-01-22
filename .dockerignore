@@ -1,0 +1,31 @@
+# Rust build artifacts
+/target
+
+# Git and version control
+.git
+.gitignore
+
+# CI/CD and deployment files
+.github
+k8s.yaml
+k8s.secrets.yaml
+
+# Runtime configuration (loaded from Kubernetes)
+config.toml
+
+# Build cache
+cache/
+
+# Documentation
+AGENTS.md
+
+# Editor and IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
