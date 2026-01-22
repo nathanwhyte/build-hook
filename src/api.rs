@@ -76,12 +76,12 @@ async fn handler(
             match project.build(state.config.app.cache, &state.config.app.registry) {
                 Ok(()) => {
                     tracing::info!(
-                        "Build completed successfully for project `{}`",
+                        "Build started successfully for project `{}`",
                         project.slug()
                     );
                 }
                 Err(e) => {
-                    tracing::error!("Build failed for project `{}`: {}", project.slug(), e);
+                    tracing::error!("Failed to start build for project `{}`: {}", project.slug(), e);
                 }
             }
             BuildHookResponse

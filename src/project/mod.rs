@@ -133,49 +133,77 @@ impl ProjectConfig {
             .spawn()
             .map_err(|e| format!("Failed to execute docker buildx: {}", e))?;
 
-        // Stream stdout and stderr using tracing
-        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-
-        // Use threads to stream both stdout and stderr concurrently
-        let stdout_handle = std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    tracing::info!("[build] {}", line);
+        // Verify process started successfully
+        // Check if process is still running (hasn't immediately failed)
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // Process already exited
+                if !status.success() {
+                    return Err(format!("Build process exited immediately with code: {:?}", status.code()));
                 }
             }
-        });
-
-        let stderr_handle = std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    tracing::debug!("[build] {}", line);
-                }
+            Ok(None) => {
+                // Process is still running, which is what we want
             }
-        });
-
-        // Wait for process to complete
-        let status = child.wait()
-            .map_err(|e| format!("Failed to wait for build process: {}", e))?;
-
-        // Wait for streaming threads to finish
-        stdout_handle.join().ok();
-        stderr_handle.join().ok();
-
-        if !status.success() {
-            tracing::error!(
-                "Build failed for {} with exit code: {:?}",
-                image_tag,
-                status.code()
-            );
-            return Err(format!("Build failed with exit code: {:?}", status.code()));
+            Err(e) => {
+                return Err(format!("Failed to check build process status: {}", e));
+            }
         }
 
-        tracing::info!("Successfully built and pushed image: {}", image_tag);
+        // Stream stdout and stderr using tracing in background
+        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+        let image_tag_clone = image_tag.clone();
+
+        // Spawn background task to handle build completion
+        std::thread::spawn(move || {
+            // Stream stdout
+            let stdout_handle = std::thread::spawn(move || {
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(stdout);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        tracing::info!("[build] {}", line);
+                    }
+                }
+            });
+
+            // Stream stderr
+            let stderr_handle = std::thread::spawn(move || {
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        tracing::debug!("[build] {}", line);
+                    }
+                }
+            });
+
+            // Wait for process to complete
+            let status = match child.wait() {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("Failed to wait for build process: {}", e);
+                    return;
+                }
+            };
+
+            // Wait for streaming threads to finish
+            stdout_handle.join().ok();
+            stderr_handle.join().ok();
+
+            if !status.success() {
+                tracing::error!(
+                    "Build failed for {} with exit code: {:?}",
+                    image_tag_clone,
+                    status.code()
+                );
+            } else {
+                tracing::info!("Successfully built and pushed image: {}", image_tag_clone);
+            }
+        });
+
+        tracing::info!("Build started successfully for image: {}", image_tag);
         Ok(())
     }
 
