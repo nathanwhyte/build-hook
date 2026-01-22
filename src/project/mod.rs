@@ -91,13 +91,73 @@ impl ProjectConfig {
         tracing::debug!("  Deployment Resources: {:?}", self.deployments.resources);
     }
 
-    pub fn build(&self, cache: bool) {
+    pub fn build(&self, cache: bool, registry: &str) -> Result<(), String> {
         let repo_dest = match cache {
             true => format!("/cache/{}", self.slug),
             false => format!("/tmp/{}", self.slug),
         };
 
-        let _repo = repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
+        // Clone repository
+        repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
+
+        // Construct image tag: <registry>/<slug>/<repository>:<tag>
+        let image_tag = format!(
+            "{}/{}/{}:{}",
+            registry, self.slug, self.image.repository, self.image.tag
+        );
+
+        tracing::info!("Building and pushing image: {}", image_tag);
+        tracing::info!("Build context: {}", repo_dest);
+        tracing::info!(
+            "Executing: docker buildx build --builder builder --platform linux/amd64 --push -t {} {}",
+            image_tag,
+            repo_dest
+        );
+
+        // Execute docker buildx build --push with amd64 platform
+        let output = std::process::Command::new("docker")
+            .args(&[
+                "buildx",
+                "build",
+                "--builder",
+                "builder",
+                "--platform",
+                "linux/amd64",
+                "--push",
+                "-t",
+                &image_tag,
+                &repo_dest,
+            ])
+            .output()
+            .map_err(|e| format!("Failed to execute docker buildx: {}", e))?;
+
+        // Log stdout line by line for better visibility
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            for line in stdout.lines() {
+                tracing::debug!("[build] {}", line);
+            }
+        }
+
+        // Log stderr line by line
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.trim().is_empty() {
+            for line in stderr.lines() {
+                tracing::debug!("[build] {}", line);
+            }
+        }
+
+        if !output.status.success() {
+            tracing::error!(
+                "Build failed for {} with exit code: {:?}",
+                image_tag,
+                output.status.code()
+            );
+            return Err(format!("Build failed: {}", stderr));
+        }
+
+        tracing::info!("Successfully built and pushed image: {}", image_tag);
+        Ok(())
     }
 
     pub fn slug(&self) -> &str {

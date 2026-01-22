@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use url::Url;
 
 use crate::project::ProjectConfig;
 
@@ -53,11 +52,9 @@ pub fn load() -> Result<HookConfig, String> {
 }
 
 fn validate(config: &ConfigFile) -> Result<(), String> {
-    // app.registry should be a valid HTTPS URL
-    let registry_url = Url::parse(&config.app.registry)
-        .map_err(|_| "`app.registry` must be a valid URL!".to_string())?;
-    if registry_url.scheme() != "https" {
-        return Err("`app.registry` must use HTTPS!".to_string());
+    // app.registry should not be empty
+    if config.app.registry.trim().is_empty() {
+        return Err("`app.registry` must not be empty!".to_string());
     }
 
     // app.cache is a boolean, no need to validate

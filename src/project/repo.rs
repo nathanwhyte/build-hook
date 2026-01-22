@@ -1,6 +1,6 @@
 use git2::Repository;
 
-pub fn clone_repo(src: &String, dest: &String, branch: &String) -> Repository {
+pub fn clone_repo(src: &String, dest: &String, branch: &String) {
     let mut repo = match Repository::open(dest) {
         Ok(repo) => repo,
         Err(_) => {
@@ -12,8 +12,6 @@ pub fn clone_repo(src: &String, dest: &String, branch: &String) -> Repository {
     checkout_branch(&mut repo, branch, dest);
 
     fetch_latest(&repo, branch, dest);
-
-    repo
 }
 
 fn checkout_branch(repo: &mut Repository, branch: &String, dest: &String) {

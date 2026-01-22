@@ -2,6 +2,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod api;
 mod auth;
+mod buildx;
 mod config;
 mod project;
 
@@ -22,6 +23,15 @@ async fn main() {
         Ok(cfg) => cfg,
         Err(e) => panic!("Could not load config: {}", e),
     };
+
+    // Initialize buildx builder
+    tracing::debug!("Initializing buildx...");
+    if let Err(e) = buildx::initialize() {
+        tracing::warn!(
+            "Failed to initialize buildx builder: {}. Builds will fail until this is resolved.",
+            e
+        );
+    }
 
     api::start(config).await;
 }
