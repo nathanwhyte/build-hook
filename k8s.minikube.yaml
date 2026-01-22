@@ -125,7 +125,7 @@ spec:
       serviceAccountName: buildx-builder
       containers:
         - name: hook
-          image: registry.nathanwhyte.dev/build-hook/api:latest
+          image: registry.nathanwhyte.dev/build-hook/api:local
           ports:
             - containerPort: 3000
               name: http
