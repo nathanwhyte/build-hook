@@ -11,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Curl `hook`
-        run: curl -s -X GET https://build.nathanwhyte.dev/health | xargs echo
+        run: 'curl -s -X POST -H "Authorization: Bearer token12345" https://build.nathanwhyte.dev/coach | xargs echo'

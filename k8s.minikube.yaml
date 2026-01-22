@@ -57,7 +57,7 @@ data:
 
     [[projects]]
     name = "Credit Coach"
-    slug = "credit-coach"
+    slug = "coach"
 
     [projects.code]
     url = "https://github.com/nathanwhyte/credit-coach"
