@@ -114,8 +114,8 @@ impl ProjectConfig {
             repo_dest
         );
 
-        // Execute docker buildx build --push with amd64 platform
-        let output = std::process::Command::new("docker")
+        // Execute docker buildx build --push with amd64 platform, streaming output
+        let mut child = std::process::Command::new("docker")
             .args(&[
                 "buildx",
                 "build",
@@ -128,32 +128,51 @@ impl ProjectConfig {
                 &image_tag,
                 &repo_dest,
             ])
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
             .map_err(|e| format!("Failed to execute docker buildx: {}", e))?;
 
-        // Log stdout line by line for better visibility
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.trim().is_empty() {
-            for line in stdout.lines() {
-                tracing::debug!("[build] {}", line);
-            }
-        }
+        // Stream stdout and stderr using tracing
+        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
-        // Log stderr line by line
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !stderr.trim().is_empty() {
-            for line in stderr.lines() {
-                tracing::debug!("[build] {}", line);
+        // Use threads to stream both stdout and stderr concurrently
+        let stdout_handle = std::thread::spawn(move || {
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    tracing::info!("[build] {}", line);
+                }
             }
-        }
+        });
 
-        if !output.status.success() {
+        let stderr_handle = std::thread::spawn(move || {
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    tracing::debug!("[build] {}", line);
+                }
+            }
+        });
+
+        // Wait for process to complete
+        let status = child.wait()
+            .map_err(|e| format!("Failed to wait for build process: {}", e))?;
+
+        // Wait for streaming threads to finish
+        stdout_handle.join().ok();
+        stderr_handle.join().ok();
+
+        if !status.success() {
             tracing::error!(
                 "Build failed for {} with exit code: {:?}",
                 image_tag,
-                output.status.code()
+                status.code()
             );
-            return Err(format!("Build failed: {}", stderr));
+            return Err(format!("Build failed with exit code: {:?}", status.code()));
         }
 
         tracing::info!("Successfully built and pushed image: {}", image_tag);
