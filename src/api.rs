@@ -88,10 +88,12 @@ async fn handler(
                     );
                 }
             }
+            // TODO: format response body to include pod logs command
             BuildHookResponse
         }
         None => {
             tracing::warn!("No configuration found for project `{}`, skipping...", slug);
+            // TODO: this should return 404
             BuildHookResponse
         }
     }

@@ -64,8 +64,9 @@ data:
     branch = "main"
     public = false
 
-    [projects.image]
+    [[projects.image]]
     repository = "coach/coach"
+    location = "Dockerfile"
     tag = "release"
 
     [projects.deployments]
@@ -81,8 +82,14 @@ data:
     branch = "main"
     public = true
 
-    [projects.image]
+    [[projects.image]]
     repository = "equal-risk/rails"
+    location = "Dockerfile"
+    tag = "release"
+
+    [[projects.image]]
+    repository = "equal-risk/math"
+    location = "api/Dockerfile"
     tag = "release"
 
     [projects.deployments]
@@ -98,8 +105,9 @@ data:
     branch = "k8s"
     public = true
 
-    [projects.image]
+    [[projects.image]]
     repository = "portfolio/portfolio"
+    location = "Dockerfile"
     tag = "latest"
 
     [projects.deployments]
@@ -211,7 +219,7 @@ spec:
             - --token-file
             - /etc/cloudflared/token
           volumeMounts:
-            - name: hook-cloudflared-token
+            - name: tokenfile
               mountPath: /etc/cloudflared
               readOnly: true
           resources:
@@ -222,6 +230,9 @@ spec:
               cpu: 200m
               memory: 256Mi
       volumes:
-        - name: hook-cloudflared-token
+        - name: tokenfile
           secret:
             secretName: hook-cloudflared-token
+            items:
+              - key: TOKEN
+                path: token
