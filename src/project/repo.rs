@@ -1,17 +1,26 @@
-use git2::Repository;
+use git2::build::RepoBuilder;
+use git2::{Cred, FetchOptions, RemoteCallbacks, Repository};
+use std::env;
+use std::path::Path;
 
 pub fn clone_repo(src: &String, dest: &String, branch: &String) {
+    let token = env::var("GITHUB_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     let mut repo = match Repository::open(dest) {
         Ok(repo) => repo,
         Err(_) => {
             tracing::info!("Cloning `{}` to `{:?}`", src, dest);
-            Repository::clone(src, dest).unwrap()
+            let mut builder = RepoBuilder::new();
+            builder.fetch_options(fetch_options(token.as_deref()));
+            builder.clone(src, Path::new(dest)).unwrap()
         }
     };
 
     checkout_branch(&mut repo, branch, dest);
 
-    fetch_latest(&repo, branch, dest);
+    fetch_latest(&repo, branch, dest, token.as_deref());
 }
 
 fn checkout_branch(repo: &mut Repository, branch: &String, dest: &String) {
@@ -38,7 +47,7 @@ fn checkout_branch(repo: &mut Repository, branch: &String, dest: &String) {
     tracing::info!("Checked out branch `{}`", branch);
 }
 
-fn fetch_latest(repo: &Repository, branch: &String, dest: &String) {
+fn fetch_latest(repo: &Repository, branch: &String, dest: &String, token: Option<&str>) {
     let mut remote = repo.find_remote("origin").unwrap_or_else(|_| {
         // Try to find the first remote as fallback
         let remotes = repo.remotes().expect("Could not list remotes");
@@ -49,8 +58,7 @@ fn fetch_latest(repo: &Repository, branch: &String, dest: &String) {
         }
     });
 
-    let mut fetch_opts = git2::FetchOptions::new();
-    // Do not specify credentials callback; uses default since this repo expects https/public
+    let mut fetch_opts = fetch_options(token);
     let refspecs = [&format!(
         "refs/heads/{}:refs/remotes/origin/{}",
         branch, branch
@@ -69,4 +77,21 @@ fn fetch_latest(repo: &Repository, branch: &String, dest: &String) {
             e
         })
         .ok();
+}
+
+fn fetch_options(token: Option<&str>) -> FetchOptions<'_> {
+    let mut callbacks = RemoteCallbacks::new();
+    let token = token.map(str::to_owned);
+    callbacks.credentials(move |_, username_from_url, _| {
+        if let Some(token) = token.as_ref() {
+            let username = username_from_url.unwrap_or("x-access-token");
+            return Cred::userpass_plaintext(username, token);
+        }
+
+        Cred::default()
+    });
+
+    let mut fetch_opts = FetchOptions::new();
+    fetch_opts.remote_callbacks(callbacks);
+    fetch_opts
 }
