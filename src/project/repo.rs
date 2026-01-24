@@ -3,26 +3,41 @@ use git2::{Cred, FetchOptions, RemoteCallbacks};
 use std::fs;
 use std::path::Path;
 
-pub fn clone_repo(github_token: &str, src: &String, dest: &String, branch: &str) {
+pub fn clone_repo(
+    github_token: &str,
+    src: &String,
+    dest: &String,
+    branch: &str,
+) -> Result<(), git2::Error> {
     let dest_path = Path::new(dest);
     if dest_path.exists() {
         tracing::info!("Removing existing repo at `{}`", dest);
         if dest_path.is_dir() {
-            fs::remove_dir_all(dest_path).unwrap_or_else(|err| {
-                panic!("Failed to remove repository directory `{}`: {}", dest, err)
-            });
+            fs::remove_dir_all(dest_path).map_err(|err| {
+                git2::Error::from_str(&format!(
+                    "Failed to remove repository directory `{}`: {}",
+                    dest, err
+                ))
+            })?;
         } else {
-            fs::remove_file(dest_path).unwrap_or_else(|err| {
-                panic!("Failed to remove repository file `{}`: {}", dest, err)
-            });
+            fs::remove_file(dest_path).map_err(|err| {
+                git2::Error::from_str(&format!(
+                    "Failed to remove repository file `{}`: {}",
+                    dest, err
+                ))
+            })?;
         }
     }
 
     tracing::info!("Cloning `{}` to `{:?}`", src, dest);
+
     let mut builder = RepoBuilder::new();
     builder.fetch_options(get_fetch_options(github_token));
     builder.branch(branch);
-    let _ = builder.clone(src, dest_path).unwrap();
+
+    let _ = builder.clone(src, dest_path)?;
+
+    Ok(())
 }
 
 fn get_fetch_options(token: &str) -> FetchOptions<'_> {
