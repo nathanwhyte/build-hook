@@ -32,8 +32,6 @@ pub struct AppState {
 }
 
 pub async fn start(config: config::HookConfig) {
-    // TODO: create a route per configured project
-
     let app_state = Arc::new(AppState { config });
 
     // Public routes (no auth required)
