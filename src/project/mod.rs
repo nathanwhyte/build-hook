@@ -3,7 +3,6 @@ mod repo;
 
 use serde::Deserialize;
 use std::path::{Component, Path};
-use url::Url;
 
 #[derive(Debug, Deserialize)]
 pub struct ProjectConfig {
@@ -34,6 +33,40 @@ pub struct DeploymentConfig {
     resources: Vec<String>,
 }
 
+fn validate_https_url(url: &str) -> Result<(), String> {
+    // Must start with https://
+    if !url.starts_with("https://") {
+        return Err("URL must start with https://".to_string());
+    }
+
+    // After https://, there should be at least one character (host)
+    let after_scheme = &url[8..];
+    if after_scheme.is_empty() {
+        return Err("URL must have a host".to_string());
+    }
+
+    // Extract host part (everything before the first /)
+    let host_part = if let Some(slash_pos) = after_scheme.find('/') {
+        &after_scheme[..slash_pos]
+    } else {
+        after_scheme
+    };
+
+    if host_part.is_empty() {
+        return Err("URL must have a host".to_string());
+    }
+
+    // Basic character validation for host (alphanumeric, dots, hyphens, colons for ports, brackets for IPv6)
+    if !host_part
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == ':' || c == '[' || c == ']')
+    {
+        return Err("URL contains invalid characters in host".to_string());
+    }
+
+    Ok(())
+}
+
 impl ProjectConfig {
     pub fn validate(&self) -> Result<(), String> {
         // project.name should not be empty
@@ -45,12 +78,9 @@ impl ProjectConfig {
             return Err("project.slug must not be empty!".to_string());
         }
 
-        // project.code.url should be a valid URL
-        let code_url = Url::parse(&self.code.url)
-            .map_err(|_| "`project.code.url` must be a valid URL!".to_string())?;
-        if code_url.scheme() != "https" {
-            return Err("`project.code.url` must use HTTPS!".to_string());
-        }
+        // project.code.url should be a valid HTTPS URL
+        validate_https_url(&self.code.url)
+            .map_err(|_| "`project.code.url` must be a valid HTTPS URL!".to_string())?;
 
         // project.code.branch should not be empty
         if self.code.branch.trim().is_empty() {
