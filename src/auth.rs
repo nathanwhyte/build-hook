@@ -26,7 +26,7 @@ fn parse_bearer(header_value: &str) -> Option<&str> {
 }
 
 async fn authorize_bearer(token: &str) -> Option<CurrentUser> {
-    let bearer_tokens = load_tokens_from_env();
+    let bearer_tokens = load_bearer_tokens_from_env();
 
     match !bearer_tokens.contains(&token.to_string()) {
         true => {
@@ -89,7 +89,7 @@ pub async fn auth_layer(req: Request, next: Next) -> Response {
     USER.scope(user, next.run(req)).await
 }
 
-pub fn load_tokens_from_env() -> Vec<String> {
+pub fn load_bearer_tokens_from_env() -> Vec<String> {
     // NOTE: temporary, bacon doesn't support env in `run` jobs
     let tokens_string = std::env::var("BEARER_TOKENS").unwrap_or("token12345".to_string());
 

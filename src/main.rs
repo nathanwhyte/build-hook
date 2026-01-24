@@ -24,6 +24,13 @@ async fn main() {
         Err(e) => panic!("Could not load config: {}", e),
     };
 
+    let github_token = std::env::var("GITHUB_TOKEN").unwrap_or_default();
+    if github_token.is_empty() {
+        tracing::warn!(
+            "No GITHUB_TOKEN environment variable set, git operations may fail if authentication is required."
+        );
+    }
+
     // Initialize buildx builder
     tracing::debug!("Initializing buildx...");
     if let Err(e) = buildx::initialize() {
@@ -33,5 +40,5 @@ async fn main() {
         );
     }
 
-    api::start(config).await;
+    api::start(config, github_token).await;
 }

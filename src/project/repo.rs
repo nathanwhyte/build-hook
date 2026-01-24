@@ -1,14 +1,9 @@
 use git2::build::RepoBuilder;
 use git2::{Cred, FetchOptions, RemoteCallbacks};
-use std::env;
 use std::fs;
 use std::path::Path;
 
-pub fn clone_repo(src: &String, dest: &String, branch: &str) {
-    let token = env::var("GITHUB_TOKEN")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
+pub fn clone_repo(github_token: &str, src: &String, dest: &String, branch: &str) {
     let dest_path = Path::new(dest);
     if dest_path.exists() {
         tracing::info!("Removing existing repo at `{}`", dest);
@@ -25,16 +20,15 @@ pub fn clone_repo(src: &String, dest: &String, branch: &str) {
 
     tracing::info!("Cloning `{}` to `{:?}`", src, dest);
     let mut builder = RepoBuilder::new();
-    builder.fetch_options(get_fetch_options(token.as_deref()));
+    builder.fetch_options(get_fetch_options(github_token));
     builder.branch(branch);
     let _ = builder.clone(src, dest_path).unwrap();
 }
 
-fn get_fetch_options(token: Option<&str>) -> FetchOptions<'_> {
+fn get_fetch_options(token: &str) -> FetchOptions<'_> {
     let mut callbacks = RemoteCallbacks::new();
-    let token = token.map(str::to_owned);
     callbacks.credentials(move |_, username_from_url, _| {
-        if let Some(token) = token.as_ref() {
+        if !token.is_empty() {
             let username = username_from_url.unwrap_or("x-access-token");
             return Cred::userpass_plaintext(username, token);
         }

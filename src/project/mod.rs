@@ -123,11 +123,11 @@ impl ProjectConfig {
         tracing::debug!("  Deployment Resources: {:?}", self.deployments.resources);
     }
 
-    pub fn build(&self, registry: &str) -> Result<(), String> {
+    pub fn build(&self, registry: &str, github_token: &str) -> Result<(), String> {
         let repo_dest = format!("/tmp/{}", self.slug);
 
         // Clone repository
-        repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
+        repo::clone_repo(github_token, &self.code.url, &repo_dest, &self.code.branch);
 
         let image_builds: Vec<image::BuildImage> = self
             .image

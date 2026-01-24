@@ -29,10 +29,14 @@ impl IntoResponse for BuildHookResponse {
 
 pub struct AppState {
     config: config::HookConfig,
+    github_token: String,
 }
 
-pub async fn start(config: config::HookConfig) {
-    let app_state = Arc::new(AppState { config });
+pub async fn start(config: config::HookConfig, github_token: String) {
+    let app_state = Arc::new(AppState {
+        config,
+        github_token,
+    });
 
     // Public routes (no auth required)
     let public_routes = Router::new().route("/health", get(healthcheck));
@@ -71,7 +75,9 @@ async fn handler(
                 "Received build hook for project `{}`, building...",
                 project.slug()
             );
-            match project.build(&state.config.app.registry) {
+            let registry = &state.config.app.registry;
+            let github_token = &state.github_token;
+            match project.build(registry, github_token) {
                 Ok(()) => {
                     tracing::info!(
                         "Build started successfully for project `{}`",
