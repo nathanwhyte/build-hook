@@ -123,11 +123,8 @@ impl ProjectConfig {
         tracing::debug!("  Deployment Resources: {:?}", self.deployments.resources);
     }
 
-    pub fn build(&self, cache: bool, registry: &str) -> Result<(), String> {
-        let repo_dest = match cache {
-            true => format!("/cache/{}", self.slug),
-            false => format!("/tmp/{}", self.slug),
-        };
+    pub fn build(&self, registry: &str) -> Result<(), String> {
+        let repo_dest = format!("/tmp/{}", self.slug);
 
         // Clone repository
         repo::clone_repo(&self.code.url, &repo_dest, &self.code.branch);
@@ -151,7 +148,9 @@ impl ProjectConfig {
             })
             .collect();
 
-        image::build_images(image_builds, cache, repo_dest)
+        image::build_images(image_builds, repo_dest)
+
+        // TODO: restart k8s services
     }
 
     pub fn slug(&self) -> &str {

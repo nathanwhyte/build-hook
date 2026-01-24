@@ -1,6 +1,7 @@
 use git2::build::RepoBuilder;
 use git2::{Cred, FetchOptions, RemoteCallbacks, Repository};
 use std::env;
+use std::fs;
 use std::path::Path;
 
 pub fn clone_repo(src: &String, dest: &String, branch: &String) {
@@ -8,15 +9,25 @@ pub fn clone_repo(src: &String, dest: &String, branch: &String) {
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let mut repo = match Repository::open(dest) {
-        Ok(repo) => repo,
-        Err(_) => {
-            tracing::info!("Cloning `{}` to `{:?}`", src, dest);
-            let mut builder = RepoBuilder::new();
-            builder.fetch_options(fetch_options(token.as_deref()));
-            builder.clone(src, Path::new(dest)).unwrap()
+    let dest_path = Path::new(dest);
+    if dest_path.exists() {
+        tracing::info!("Removing existing repo at `{}`", dest);
+        if dest_path.is_dir() {
+            fs::remove_dir_all(dest_path).unwrap_or_else(|err| {
+                panic!("Failed to remove repository directory `{}`: {}", dest, err)
+            });
+        } else {
+            fs::remove_file(dest_path).unwrap_or_else(|err| {
+                panic!("Failed to remove repository file `{}`: {}", dest, err)
+            });
         }
-    };
+    }
+
+    tracing::info!("Cloning `{}` to `{:?}`", src, dest);
+    let mut builder = RepoBuilder::new();
+    builder.fetch_options(fetch_options(token.as_deref()));
+    builder.branch(branch);
+    let mut repo = builder.clone(src, dest_path).unwrap();
 
     checkout_branch(&mut repo, branch, dest);
 

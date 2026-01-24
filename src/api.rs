@@ -73,7 +73,7 @@ async fn handler(
                 "Received build hook for project `{}`, building...",
                 project.slug()
             );
-            match project.build(state.config.app.cache, &state.config.app.registry) {
+            match project.build(&state.config.app.registry) {
                 Ok(()) => {
                     tracing::info!(
                         "Build started successfully for project `{}`",

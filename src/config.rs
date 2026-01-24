@@ -13,7 +13,6 @@ pub struct ConfigFile {
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
     pub registry: String,
-    pub cache: bool,
 }
 
 pub struct HookConfig {
@@ -57,8 +56,6 @@ fn validate(config: &ConfigFile) -> Result<(), String> {
         return Err("`app.registry` must not be empty!".to_string());
     }
 
-    // app.cache is a boolean, no need to validate
-
     for project in &config.projects {
         project.validate()?;
     }
@@ -68,8 +65,6 @@ fn validate(config: &ConfigFile) -> Result<(), String> {
 
 fn log(config: &HookConfig) {
     tracing::debug!("Image registry: {}", config.app.registry);
-    tracing::debug!("Builds should be cached: {}", config.app.cache);
-
     tracing::debug!("Loaded {} project(s):", config.projects.len());
 
     for project in config.projects.values() {

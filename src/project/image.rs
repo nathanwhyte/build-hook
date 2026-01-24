@@ -6,11 +6,7 @@ pub struct BuildImage {
     pub context_dir: String,
 }
 
-pub fn build_images(
-    mut image_builds: Vec<BuildImage>,
-    cache: bool,
-    repo_dest: String,
-) -> Result<(), String> {
+pub fn build_images(mut image_builds: Vec<BuildImage>, repo_dest: String) -> Result<(), String> {
     for build in &image_builds {
         if !Path::new(&build.dockerfile_path).is_file() {
             return Err(format!(
@@ -62,14 +58,12 @@ pub fn build_images(
             }
         }
 
-        if !cache {
-            if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
-                tracing::warn!(
-                    "Failed to remove temporary repository directory {}: {}",
-                    repo_dest,
-                    e
-                );
-            }
+        if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
+            tracing::warn!(
+                "Failed to remove temporary repository directory {}: {}",
+                repo_dest,
+                e
+            );
         }
     });
 

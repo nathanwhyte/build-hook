@@ -53,7 +53,6 @@ data:
   config.toml: |
     [app]
     registry = "registry.nathanwhyte.dev"
-    cache = false
 
     [[projects]]
     name = "Credit Coach"
