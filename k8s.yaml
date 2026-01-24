@@ -55,6 +55,24 @@ data:
     registry = "registry.nathanwhyte.dev"
 
     [[projects]]
+    name = "Build Hook"
+    slug = "hook"
+
+    [projects.code]
+    url = "https://github.com/nathanwhyte/build-hook"
+    branch = "main"
+    public = false
+
+    [[projects.image]]
+    repository = "build-hook/api"
+    location = "Dockerfile"
+    tag = "release"
+
+    [projects.deployments]
+    namespace = "build"
+    resources = ["deployment/hook"]
+
+    [[projects]]
     name = "Credit Coach"
     slug = "coach"
 
@@ -144,7 +162,10 @@ spec:
           imagePullPolicy: Always
           env:
             - name: BEARER_TOKENS
-              value: token12345,token67890
+              valueFrom:
+                secretKeyRef:
+                  name: bearer-tokens-secret
+                  key: BEARER_TOKENS
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
