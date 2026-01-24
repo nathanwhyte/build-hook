@@ -26,7 +26,8 @@ RUN apt-get update && apt-get install -y libssl-dev pkg-config
 # compile Rust binary
 WORKDIR /usr/src/build-hook
 COPY . .
-ENV RUST_MIN_STACK=16777216
+# ENV RUST_MIN_STACK=33554432
+# RUN cargo install --path . --jobs 1
 RUN cargo install --path .
 
 FROM debian:trixie-slim

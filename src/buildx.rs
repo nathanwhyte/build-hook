@@ -175,10 +175,10 @@ fn create_builder() -> Result<(), String> {
             BUILDER_NAME,
         ])
         .args(["--driver-opt", &format!("namespace={}", "build")])
-        .args(["--driver-opt", &format!("replicas={}", 2)])
-        .args(["--driver-opt", &format!("requests.cpu={}", "500m")])
-        .args(["--driver-opt", &format!("requests.memory={}", "1Gi")])
-        .args(["--driver-opt", &format!("limits.cpu={}", "2")])
+        .args(["--driver-opt", &format!("replicas={}", 1)])
+        .args(["--driver-opt", &format!("requests.cpu={}", "2")])
+        .args(["--driver-opt", &format!("requests.memory={}", "2Gi")])
+        .args(["--driver-opt", &format!("limits.cpu={}", "4")])
         .args(["--driver-opt", &format!("limits.memory={}", "4Gi")]);
 
     command.args(["--use"]);
