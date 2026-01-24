@@ -90,13 +90,10 @@ pub async fn auth_layer(req: Request, next: Next) -> Response {
 }
 
 pub fn load_bearer_tokens_from_env() -> Vec<String> {
-    // NOTE: temporary, bacon doesn't support env in `run` jobs
-    let tokens_string = std::env::var("BEARER_TOKENS").unwrap_or("token12345".to_string());
-
-    // let tokens_string = match std::env::var("BEARER_TOKENS") {
-    //     Ok(tokens) => tokens,
-    //     Err(_) => panic!("No BEARER_TOKENS environment variable set!"),
-    // };
+    let tokens_string = match std::env::var("BEARER_TOKENS") {
+        Ok(tokens) => tokens,
+        Err(_) => panic!("No BEARER_TOKENS environment variable set!"),
+    };
 
     tokens_string
         .split(',')
