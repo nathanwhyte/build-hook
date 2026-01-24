@@ -1,57 +1,75 @@
-use git2::build::RepoBuilder;
-use git2::{Cred, FetchOptions, RemoteCallbacks};
 use std::fs;
 use std::path::Path;
+use std::process::{Command, Output};
 
 pub fn clone_repo(
     github_token: &str,
     src: &String,
     dest: &String,
     branch: &str,
-) -> Result<(), git2::Error> {
+) -> Result<(), String> {
     let dest_path = Path::new(dest);
     if dest_path.exists() {
         tracing::info!("Removing existing repo at `{}`", dest);
         if dest_path.is_dir() {
             fs::remove_dir_all(dest_path).map_err(|err| {
-                git2::Error::from_str(&format!(
-                    "Failed to remove repository directory `{}`: {}",
-                    dest, err
-                ))
+                format!("Failed to remove repository directory `{}`: {}", dest, err)
             })?;
         } else {
-            fs::remove_file(dest_path).map_err(|err| {
-                git2::Error::from_str(&format!(
-                    "Failed to remove repository file `{}`: {}",
-                    dest, err
-                ))
-            })?;
+            fs::remove_file(dest_path)
+                .map_err(|err| format!("Failed to remove repository file `{}`: {}", dest, err))?;
         }
     }
 
     tracing::info!("Cloning `{}` to `{:?}`", src, dest);
 
-    let mut builder = RepoBuilder::new();
-    builder.fetch_options(get_fetch_options(github_token));
-    builder.branch(branch);
+    let clone_url = with_github_credentials(src, github_token)?;
+    let output = run_command_output(
+        Command::new("git")
+            .args(["clone", "--branch", branch, "--single-branch"])
+            .arg(clone_url)
+            .arg(dest)
+            .env("GIT_TERMINAL_PROMPT", "0"),
+        "git clone",
+    )?;
 
-    let _ = builder.clone(src, dest_path)?;
+    if !output.status.success() {
+        return Err(format!(
+            "Failed to clone repository: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
 
     Ok(())
 }
 
-fn get_fetch_options(token: &str) -> FetchOptions<'_> {
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(move |_, username_from_url, _| {
-        if !token.is_empty() {
-            let username = username_from_url.unwrap_or("x-access-token");
-            return Cred::userpass_plaintext(username, token);
-        }
+fn run_command_output(command: &mut Command, description: &str) -> Result<Output, String> {
+    let output = command
+        .output()
+        .map_err(|err| format!("Failed to run {}: {}", description, err))?;
 
-        Cred::default()
-    });
+    if !output.status.success() && !output.stderr.is_empty() {
+        tracing::warn!(
+            "{} stderr: {}",
+            description,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
-    let mut fetch_opts = FetchOptions::new();
-    fetch_opts.remote_callbacks(callbacks);
-    fetch_opts
+    Ok(output)
+}
+
+fn with_github_credentials(src: &str, github_token: &str) -> Result<String, String> {
+    if github_token.is_empty() {
+        return Ok(src.to_string());
+    }
+
+    if let Some((scheme, rest)) = src.split_once("://") {
+        return Ok(format!(
+            "{}://x-access-token:{}@{}",
+            scheme, github_token, rest
+        ));
+    }
+
+    Err(format!("Unsupported repository URL format: {}", src))
 }
