@@ -42,13 +42,6 @@ fn run_command_output(command: &mut Command, description: &str) -> Result<Output
         .output()
         .map_err(|e| format!("Failed to run {}: {}", description, e))?;
 
-    if !output.stdout.is_empty() {
-        tracing::debug!(
-            "{} stdout: {}",
-            description,
-            String::from_utf8_lossy(&output.stdout)
-        );
-    }
     if !output.status.success() && !output.stderr.is_empty() {
         tracing::warn!(
             "{} stderr: {}",
