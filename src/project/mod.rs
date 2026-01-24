@@ -127,7 +127,8 @@ impl ProjectConfig {
         let repo_dest = format!("/tmp/{}", self.slug);
 
         // Clone repository
-        repo::clone_repo(github_token, &self.code.url, &repo_dest, &self.code.branch);
+        repo::clone_repo(github_token, &self.code.url, &repo_dest, &self.code.branch)
+            .map_err(|err| format!("Failed to clone repository: {}", err))?;
 
         let image_builds: Vec<image::BuildImage> = self
             .image

@@ -18,12 +18,7 @@ pub struct BuildHookResponse;
 impl IntoResponse for BuildHookResponse {
     fn into_response(self) -> Response {
         // State is accessed here in the IntoResponse implementation
-        let current_user = auth::USER.with(|u| u.clone());
-        (
-            StatusCode::OK,
-            format!("Hi there, user `{}`", current_user.id),
-        )
-            .into_response()
+        (StatusCode::OK, "Started build and deploy process\n").into_response()
     }
 }
 
@@ -65,10 +60,7 @@ async fn healthcheck() -> Json<serde_json::Value> {
     }))
 }
 
-async fn handler(
-    Path(slug): Path<String>,
-    State(state): State<Arc<AppState>>,
-) -> BuildHookResponse {
+async fn handler(Path(slug): Path<String>, State(state): State<Arc<AppState>>) -> Response {
     match state.config.projects.get(&slug) {
         Some(project) => {
             tracing::info!(
@@ -83,6 +75,7 @@ async fn handler(
                         "Build started successfully for project `{}`",
                         project.slug()
                     );
+                    BuildHookResponse.into_response()
                 }
                 Err(e) => {
                     tracing::error!(
@@ -90,15 +83,26 @@ async fn handler(
                         project.slug(),
                         e
                     );
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!(
+                            "Failed to start build for project `{}`:\n{}\n",
+                            project.slug(),
+                            e
+                        ),
+                    )
+                        .into_response()
                 }
             }
-            // TODO: format response body to include pod logs command
-            BuildHookResponse
         }
+
         None => {
             tracing::warn!("No configuration found for project `{}`, skipping...", slug);
-            // TODO: this should return 404
-            BuildHookResponse
+            (
+                StatusCode::NOT_FOUND,
+                format!("No configuration found for project `{}`\n", slug),
+            )
+                .into_response()
         }
     }
 }
