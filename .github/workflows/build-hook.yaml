@@ -1,0 +1,18 @@
+name: Bearer Curl
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  curl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call `build-hook` with bearer token
+        env:
+          BEARER_TOKEN: ${{ secrets.BEARER_TOKEN }}
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${BEARER_TOKEN}" \
+            https://build.nathanwhyte.dev/coach
