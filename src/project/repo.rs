@@ -34,10 +34,7 @@ pub fn clone_repo(
     )?;
 
     if !output.status.success() {
-        return Err(format!(
-            "Failed to clone repository: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err("Failed to clone repository".to_string());
     }
 
     Ok(())
@@ -48,12 +45,8 @@ fn run_command_output(command: &mut Command, description: &str) -> Result<Output
         .output()
         .map_err(|err| format!("Failed to run {}: {}", description, err))?;
 
-    if !output.status.success() && !output.stderr.is_empty() {
-        tracing::warn!(
-            "{} stderr: {}",
-            description,
-            String::from_utf8_lossy(&output.stderr)
-        );
+    if !output.status.success() {
+        tracing::warn!("{} failed", description);
     }
 
     Ok(output)

@@ -22,7 +22,10 @@ async fn main() {
     tracing::debug!("Loading config...");
     let config = match config::load() {
         Ok(cfg) => cfg,
-        Err(e) => panic!("Could not load config: {}", e),
+        Err(e) => {
+            tracing::error!("Could not load config: {}", e);
+            return;
+        }
     };
 
     let github_token = std::env::var("GITHUB_TOKEN").unwrap_or_default();

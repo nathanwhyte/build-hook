@@ -90,12 +90,11 @@ fn setup_kubeconfig() -> Result<(), String> {
     }
 
     // Set credentials
-    let output = run_command_output(
-        Command::new("kubectl")
-            .args(["config", "set-credentials", "k8s", "--token", &token])
-            .env("KUBECONFIG", kubeconfig_path),
-        "kubectl set-credentials",
-    )?;
+    let output = Command::new("kubectl")
+        .args(["config", "set-credentials", "k8s", "--token", &token])
+        .env("KUBECONFIG", kubeconfig_path)
+        .output()
+        .map_err(|e| format!("Failed to run kubectl set-credentials: {}", e))?;
     if !output.status.success() {
         return Err("Failed to set credentials".to_string());
     }

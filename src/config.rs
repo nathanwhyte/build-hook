@@ -22,15 +22,11 @@ pub struct HookConfig {
 
 pub fn load() -> Result<HookConfig, String> {
     // read projects config file
-    let file_string = match std::fs::read_to_string("config.toml") {
-        Ok(contents) => contents,
-        Err(_) => panic!("Could not read config.toml file!"),
-    };
+    let file_string = std::fs::read_to_string("config.toml")
+        .map_err(|_| "Could not read config.toml file!".to_string())?;
 
-    let config_file: ConfigFile = match toml::from_str(&file_string) {
-        Ok(v) => v,
-        Err(e) => panic!("Could not parse config.toml file: {}", e),
-    };
+    let config_file: ConfigFile = toml::from_str(&file_string)
+        .map_err(|e| format!("Could not parse config.toml file: {}", e))?;
 
     validate(&config_file)?;
 

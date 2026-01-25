@@ -28,18 +28,15 @@ fn parse_bearer(header_value: &str) -> Option<&str> {
 async fn authorize_bearer(token: &str) -> Option<CurrentUser> {
     let bearer_tokens = load_bearer_tokens_from_env();
 
-    match !bearer_tokens.contains(&token.to_string()) {
-        true => {
-            tracing::warn!("Invalid bearer token: {}", token);
-            None
-        }
-        false => {
-            tracing::info!("Valid bearer token: {}", token);
-            Some(CurrentUser {
-                id: token.to_owned(),
-            })
-        }
+    if !bearer_tokens.contains(&token.to_string()) {
+        tracing::warn!("Invalid bearer token");
+        return None;
     }
+
+    tracing::info!("Valid bearer token");
+    Some(CurrentUser {
+        id: "bearer".to_string(),
+    })
 }
 
 pub async fn auth_layer(req: Request, next: Next) -> Response {
@@ -84,7 +81,7 @@ pub async fn auth_layer(req: Request, next: Next) -> Response {
         }
     };
 
-    tracing::debug!("Authorized user with ID: {}", user.id);
+    tracing::debug!("Authorized user");
 
     USER.scope(user, next.run(req)).await
 }

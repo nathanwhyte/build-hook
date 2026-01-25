@@ -134,42 +134,59 @@ impl ProjectConfig {
 
     pub fn build(&self, registry: &str, github_token: &str) -> Result<(), String> {
         let repo_dest = format!("/tmp/{}", self.slug);
-
-        // Clone repository
-        repo::clone_repo(github_token, &self.code.url, &repo_dest, &self.code.branch)
-            .map_err(|err| format!("Failed to clone repository: {}", err))?;
-
-        let image_builds: Vec<image::BuildImage> = self
+        let code_url = self.code.url.clone();
+        let code_branch = self.code.branch.clone();
+        let image_specs: Vec<(String, String, String)> = self
             .image
             .iter()
             .map(|image| {
-                let tag = format!("{}/{}:{}", registry, image.repository, image.tag);
-                let dockerfile_path = Path::new(&repo_dest).join(&image.location);
-                let context_dir = dockerfile_path
-                    .parent()
-                    .unwrap_or_else(|| Path::new(&repo_dest))
-                    .to_string_lossy()
-                    .to_string();
-                image::BuildImage {
-                    tag,
-                    dockerfile_path: dockerfile_path.to_string_lossy().to_string(),
-                    context_dir,
-                }
+                (
+                    image.repository.clone(),
+                    image.location.clone(),
+                    image.tag.clone(),
+                )
             })
             .collect();
 
         let namespace = self.deployments.namespace.clone();
         let resources = self.deployments.resources.clone();
         let slug = self.slug.clone();
+        let registry = registry.to_string();
+        let github_token = github_token.to_string();
 
-        std::thread::spawn(move || match image::build_images(image_builds, repo_dest) {
-            Ok(()) => {
-                if let Err(e) = kube::rollout_restart(&namespace, &resources) {
-                    tracing::error!("Rollout restart failed for project `{}`: {}", slug, e);
-                }
+        tokio::task::spawn_blocking(move || {
+            if let Err(err) = repo::clone_repo(&github_token, &code_url, &repo_dest, &code_branch) {
+                tracing::error!("Failed to clone repository for project `{}`: {}", slug, err);
+                return;
             }
-            Err(e) => {
-                tracing::error!("Build failed for project `{}`: {}", slug, e);
+
+            let image_builds: Vec<image::BuildImage> = image_specs
+                .into_iter()
+                .map(|(repository, location, tag)| {
+                    let image_tag = format!("{}/{}:{}", registry, repository, tag);
+                    let dockerfile_path = Path::new(&repo_dest).join(&location);
+                    let context_dir = dockerfile_path
+                        .parent()
+                        .unwrap_or_else(|| Path::new(&repo_dest))
+                        .to_string_lossy()
+                        .to_string();
+                    image::BuildImage {
+                        tag: image_tag,
+                        dockerfile_path: dockerfile_path.to_string_lossy().to_string(),
+                        context_dir,
+                    }
+                })
+                .collect();
+
+            match image::build_images(image_builds, repo_dest) {
+                Ok(()) => {
+                    if let Err(e) = kube::rollout_restart(&namespace, &resources) {
+                        tracing::error!("Rollout restart failed for project `{}`: {}", slug, e);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Build failed for project `{}`: {}", slug, e);
+                }
             }
         });
         Ok(())
