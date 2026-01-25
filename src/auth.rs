@@ -7,9 +7,7 @@ use axum::{
 use tokio::task_local;
 
 #[derive(Clone)]
-pub struct CurrentUser {
-    pub id: String,
-}
+pub struct CurrentUser;
 
 task_local! {
     pub static USER: CurrentUser;
@@ -34,9 +32,7 @@ async fn authorize_bearer(token: &str) -> Option<CurrentUser> {
     }
 
     tracing::info!("Valid bearer token");
-    Some(CurrentUser {
-        id: "bearer".to_string(),
-    })
+    Some(CurrentUser)
 }
 
 pub async fn auth_layer(req: Request, next: Next) -> Response {
