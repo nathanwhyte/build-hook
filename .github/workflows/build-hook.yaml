@@ -13,6 +13,6 @@ jobs:
         env:
           BEARER_TOKEN: ${{ secrets.BEARER_TOKEN }}
         run: |
-          curl -X POST \
+          curl -fsSL -X POST \
             -H "Authorization: Bearer ${BEARER_TOKEN}" \
             https://build.nathanwhyte.dev/hook
