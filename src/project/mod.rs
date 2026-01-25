@@ -18,7 +18,6 @@ pub struct ProjectConfig {
 pub struct CodeConfig {
     url: String,
     branch: String,
-    public: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,8 +87,6 @@ impl ProjectConfig {
             return Err("project.code.branch must not be empty!".to_string());
         }
 
-        // project.code.public is a boolean, no need to validate
-
         if self.image.is_empty() {
             return Err("project.image must have at least one entry!".to_string());
         }
@@ -133,25 +130,6 @@ impl ProjectConfig {
         }
 
         Ok(())
-    }
-
-    pub fn log(&self) {
-        tracing::debug!("---");
-        tracing::debug!("Project: {}, {}", self.name, self.slug);
-        tracing::debug!("  Code URL: {}", self.code.url);
-        tracing::debug!("  Code Branch: {}", self.code.branch);
-        tracing::debug!("  Code is Public: {}", self.code.public);
-        tracing::debug!("  Images: {}", self.image.len());
-        for image in &self.image {
-            tracing::debug!(
-                "  Image: {}:{} (Dockerfile: {})",
-                image.repository,
-                image.tag,
-                image.location
-            );
-        }
-        tracing::debug!("  Deployment Namespace: {}", self.deployments.namespace);
-        tracing::debug!("  Deployment Resources: {:?}", self.deployments.resources);
     }
 
     pub fn build(&self, registry: &str, github_token: &str) -> Result<(), String> {

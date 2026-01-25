@@ -87,7 +87,6 @@ data:
     [projects.code]
     url = "https://github.com/nathanwhyte/build-hook"
     branch = "main"
-    public = false
 
     [[projects.image]]
     repository = "build-hook/api"
@@ -105,7 +104,6 @@ data:
     [projects.code]
     url = "https://github.com/nathanwhyte/credit-coach"
     branch = "main"
-    public = false
 
     [[projects.image]]
     repository = "coach/coach"
@@ -128,7 +126,6 @@ data:
     [projects.code]
     url = "https://github.com/nathanwhyte/equal-risk-portfolio"
     branch = "main"
-    public = true
 
     [[projects.image]]
     repository = "equal-risk/rails"
@@ -151,7 +148,6 @@ data:
     [projects.code]
     url = "https://github.com/nathanwhyte/nathanwhyte.dev"
     branch = "k8s"
-    public = true
 
     [[projects.image]]
     repository = "portfolio/portfolio"
