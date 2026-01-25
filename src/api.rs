@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
@@ -9,6 +10,7 @@ use axum::{
     routing::{get, post},
 };
 use tower_http::trace::TraceLayer;
+use tokio::sync::Semaphore;
 
 use crate::auth;
 use crate::config;
@@ -29,12 +31,19 @@ impl IntoResponse for BuildHookResponse {
 pub struct AppState {
     config: config::HookConfig,
     github_token: String,
+    build_locks: HashMap<String, Arc<Semaphore>>,
 }
 
 pub async fn start(config: config::HookConfig, github_token: String) {
+    let build_locks: HashMap<String, Arc<Semaphore>> = config
+        .projects
+        .keys()
+        .map(|slug| (slug.clone(), Arc::new(Semaphore::new(1))))
+        .collect();
     let app_state = Arc::new(AppState {
         config,
         github_token,
+        build_locks,
     });
 
     // Public routes (no auth required)
@@ -71,30 +80,46 @@ async fn handler(Path(slug): Path<String>, State(state): State<Arc<AppState>>) -
                 "Received build hook for project `{}`, building...",
                 project.slug()
             );
+            let build_lock = match state.build_locks.get(&slug) {
+                Some(lock) => Arc::clone(lock),
+                None => {
+                    tracing::error!("No build lock configured for project `{}`", slug);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Build lock missing for project `{}`\n", slug),
+                    )
+                        .into_response();
+                }
+            };
+            let permit = match build_lock.try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => {
+                    tracing::warn!("Build already in progress for project `{}`", slug);
+                    return (
+                        StatusCode::CONFLICT,
+                        format!("Build already in progress for project `{}`\n", slug),
+                    )
+                        .into_response();
+                }
+            };
+
             let registry = &state.config.app.registry;
             let github_token = &state.github_token;
-            match project.build(registry, github_token) {
-                Ok(()) => {
-                    tracing::info!("Build started for project `{}`", project.slug());
-                    BuildHookResponse.into_response()
+            let project = project.clone();
+            let registry = registry.clone();
+            let github_token = github_token.clone();
+            let slug = project.slug().to_string();
+            let slug_for_log = slug.clone();
+
+            tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                if let Err(e) = project.build(&registry, &github_token) {
+                    tracing::error!("Build failed for project `{}`: {}", slug, e);
                 }
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to start build for project `{}`: {}",
-                        project.slug(),
-                        e
-                    );
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!(
-                            "Failed to start build for project `{}`:\n{}\n",
-                            project.slug(),
-                            e
-                        ),
-                    )
-                        .into_response()
-                }
-            }
+            });
+
+            tracing::info!("Build started for project `{}`", slug_for_log);
+            BuildHookResponse.into_response()
         }
 
         None => {
