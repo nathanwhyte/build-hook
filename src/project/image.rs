@@ -6,7 +6,11 @@ pub struct BuildImage {
     pub context_dir: String,
 }
 
-pub fn build_images(mut image_builds: Vec<BuildImage>, repo_dest: String) -> Result<(), String> {
+pub fn build_images(
+    mut image_builds: Vec<BuildImage>,
+    repo_dest: String,
+    mut started_tx: Option<std::sync::mpsc::Sender<Result<(), String>>>,
+) -> Result<(), String> {
     for build in &image_builds {
         if !Path::new(&build.dockerfile_path).is_file() {
             return Err(format!(
@@ -27,12 +31,28 @@ pub fn build_images(mut image_builds: Vec<BuildImage>, repo_dest: String) -> Res
         first_build.dockerfile_path
     );
 
-    let mut child = spawn_build(
+    let mut child = match spawn_build(
         &first_build.context_dir,
         &first_build.tag,
         &first_build.dockerfile_path,
-    )?;
-    verify_build_started(&mut child)?;
+    ) {
+        Ok(child) => child,
+        Err(e) => {
+            if let Some(tx) = started_tx.take() {
+                let _ = tx.send(Err(e.clone()));
+            }
+            return Err(e);
+        }
+    };
+    if let Err(e) = verify_build_started(&mut child) {
+        if let Some(tx) = started_tx.take() {
+            let _ = tx.send(Err(e.clone()));
+        }
+        return Err(e);
+    }
+    if let Some(tx) = started_tx.take() {
+        let _ = tx.send(Ok(()));
+    }
 
     handle_build_completion(child, &first_build.tag)?;
 

@@ -20,7 +20,7 @@ impl IntoResponse for BuildHookResponse {
         // State is accessed here in the IntoResponse implementation
         (
             StatusCode::OK,
-            "Build completed and rollout restart initiated\n",
+            "Build started; rollout restart will run after build completes\n",
         )
             .into_response()
     }
@@ -75,22 +75,19 @@ async fn handler(Path(slug): Path<String>, State(state): State<Arc<AppState>>) -
             let github_token = &state.github_token;
             match project.build(registry, github_token) {
                 Ok(()) => {
-                    tracing::info!(
-                        "Build completed and rollout restart initiated for project `{}`",
-                        project.slug()
-                    );
+                    tracing::info!("Build started for project `{}`", project.slug());
                     BuildHookResponse.into_response()
                 }
                 Err(e) => {
                     tracing::error!(
-                        "Build or rollout restart failed for project `{}`: {}",
+                        "Failed to start build for project `{}`: {}",
                         project.slug(),
                         e
                     );
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!(
-                            "Build or rollout restart failed for project `{}`:\n{}\n",
+                            "Failed to start build for project `{}`:\n{}\n",
                             project.slug(),
                             e
                         ),

@@ -180,8 +180,29 @@ impl ProjectConfig {
             })
             .collect();
 
-        image::build_images(image_builds, repo_dest)?;
-        kube::rollout_restart(&self.deployments.namespace, &self.deployments.resources)
+        let namespace = self.deployments.namespace.clone();
+        let resources = self.deployments.resources.clone();
+        let slug = self.slug.clone();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            match image::build_images(image_builds, repo_dest, Some(started_tx)) {
+                Ok(()) => {
+                    if let Err(e) = kube::rollout_restart(&namespace, &resources) {
+                        tracing::error!("Rollout restart failed for project `{}`: {}", slug, e);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Build failed for project `{}`: {}", slug, e);
+                }
+            }
+        });
+
+        match started_rx.recv_timeout(std::time::Duration::from_secs(30)) {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(e) => Err(format!("Timed out waiting for build to start: {}", e)),
+        }
     }
 
     pub fn slug(&self) -> &str {
