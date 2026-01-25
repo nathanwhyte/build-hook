@@ -67,7 +67,7 @@ fn log(config: &HookConfig) {
     tracing::debug!("Image registry: {}", config.app.registry);
     tracing::debug!("Loaded {} project(s):", config.projects.len());
 
-    for project in config.projects.values() {
-        project.log();
-    }
+    // for project in config.projects.values() {
+    //     project.log();
+    // }
 }
