@@ -26,9 +26,8 @@ RUN apt-get update && apt-get install -y libssl-dev pkg-config
 # compile Rust binary
 WORKDIR /usr/src/build-hook
 COPY . .
-# ENV RUST_MIN_STACK=33554432
-# RUN cargo install --path . --jobs 1
-RUN cargo install --path .
+ENV RUST_MIN_STACK=33554432
+RUN cargo install --path . --jobs 1
 
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y ca-certificates git
@@ -38,4 +37,3 @@ COPY --from=binaries /root/.docker/cli-plugins/docker-buildx /root/.docker/cli-p
 COPY --from=builder /usr/local/cargo/bin/build-hook /usr/local/bin/build-hook
 WORKDIR /app
 CMD ["build-hook"]
-
