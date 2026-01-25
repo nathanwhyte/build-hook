@@ -34,38 +34,23 @@ pub fn build_images(mut image_builds: Vec<BuildImage>, repo_dest: String) -> Res
     )?;
     verify_build_started(&mut child)?;
 
-    std::thread::spawn(move || {
-        handle_build_completion(child, first_build.tag);
+    handle_build_completion(child, &first_build.tag)?;
 
-        for build in image_builds {
-            tracing::info!("building {} using {}", build.tag, build.dockerfile_path);
-            match spawn_build(&build.context_dir, &build.tag, &build.dockerfile_path) {
-                Ok(mut next_child) => {
-                    if let Err(e) = verify_build_started(&mut next_child) {
-                        tracing::error!(
-                            "Build process for {} exited immediately: {}",
-                            build.tag,
-                            e
-                        );
-                        break;
-                    }
-                    handle_build_completion(next_child, build.tag);
-                }
-                Err(e) => {
-                    tracing::error!("Failed to start build for {}: {}", build.tag, e);
-                    break;
-                }
-            }
-        }
+    for build in image_builds {
+        tracing::info!("building {} using {}", build.tag, build.dockerfile_path);
+        let mut next_child = spawn_build(&build.context_dir, &build.tag, &build.dockerfile_path)?;
+        verify_build_started(&mut next_child)
+            .map_err(|e| format!("Build process for {} exited immediately: {}", build.tag, e))?;
+        handle_build_completion(next_child, &build.tag)?;
+    }
 
-        if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
-            tracing::warn!(
-                "Failed to remove temporary repository directory {}: {}",
-                repo_dest,
-                e
-            );
-        }
-    });
+    if let Err(e) = std::fs::remove_dir_all(&repo_dest) {
+        tracing::warn!(
+            "Failed to remove temporary repository directory {}: {}",
+            repo_dest,
+            e
+        );
+    }
 
     Ok(())
 }
@@ -113,12 +98,11 @@ fn verify_build_started(child: &mut std::process::Child) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_build_completion(child: std::process::Child, image_tag: String) {
+fn handle_build_completion(child: std::process::Child, image_tag: &str) -> Result<(), String> {
     let output = match child.wait_with_output() {
         Ok(output) => output,
         Err(e) => {
-            tracing::error!("Failed to wait for build process: {}", e);
-            return;
+            return Err(format!("Failed to wait for build process: {}", e));
         }
     };
 
@@ -138,12 +122,14 @@ fn handle_build_completion(child: std::process::Child, image_tag: String) {
     }
 
     if !output.status.success() {
-        tracing::error!(
+        return Err(format!(
             "Build failed for {} with exit code: {:?}",
             image_tag,
             output.status.code()
-        );
+        ));
     } else {
         tracing::info!("Successfully built and pushed image: {}", image_tag);
     }
+
+    Ok(())
 }

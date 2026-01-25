@@ -18,7 +18,11 @@ pub struct BuildHookResponse;
 impl IntoResponse for BuildHookResponse {
     fn into_response(self) -> Response {
         // State is accessed here in the IntoResponse implementation
-        (StatusCode::OK, "Started build and deploy process\n").into_response()
+        (
+            StatusCode::OK,
+            "Build completed and rollout restart initiated\n",
+        )
+            .into_response()
     }
 }
 
@@ -72,21 +76,21 @@ async fn handler(Path(slug): Path<String>, State(state): State<Arc<AppState>>) -
             match project.build(registry, github_token) {
                 Ok(()) => {
                     tracing::info!(
-                        "Build started successfully for project `{}`",
+                        "Build completed and rollout restart initiated for project `{}`",
                         project.slug()
                     );
                     BuildHookResponse.into_response()
                 }
                 Err(e) => {
                     tracing::error!(
-                        "Failed to start build for project `{}`: {}",
+                        "Build or rollout restart failed for project `{}`: {}",
                         project.slug(),
                         e
                     );
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!(
-                            "Failed to start build for project `{}`:\n{}\n",
+                            "Build or rollout restart failed for project `{}`:\n{}\n",
                             project.slug(),
                             e
                         ),
