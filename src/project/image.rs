@@ -81,8 +81,6 @@ fn spawn_build(
             "build",
             "--builder",
             "builder",
-            "--platform",
-            "linux/amd64",
             "--push",
             "--cache-from",
             &format!("type=registry,ref={}", image_tag),
