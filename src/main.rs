@@ -4,6 +4,7 @@ mod api;
 mod auth;
 mod buildx;
 mod config;
+mod kube;
 mod project;
 
 #[tokio::main]

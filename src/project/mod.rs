@@ -1,6 +1,7 @@
 mod image;
 mod repo;
 
+use crate::kube;
 use serde::Deserialize;
 use std::path::{Component, Path};
 
@@ -179,9 +180,8 @@ impl ProjectConfig {
             })
             .collect();
 
-        image::build_images(image_builds, repo_dest)
-
-        // TODO: restart k8s services
+        image::build_images(image_builds, repo_dest)?;
+        kube::rollout_restart(&self.deployments.namespace, &self.deployments.resources)
     }
 
     pub fn slug(&self) -> &str {
