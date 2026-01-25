@@ -66,6 +66,7 @@ fn spawn_build(
             "build",
             "--builder",
             "builder",
+            "--no-cache",
             "--push",
             "-t",
             image_tag,
