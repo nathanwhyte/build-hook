@@ -1,6 +1,11 @@
 use std::process::{Command, Output};
 
 pub fn rollout_restart(namespace: &str, resources: &[String]) -> Result<(), String> {
+    tracing::info!(
+        "Starting rollout restarts in namespace `{}` for {} resource(s)",
+        namespace,
+        resources.len()
+    );
     for resource in resources {
         tracing::info!(
             "Restarting resource `{}` in namespace `{}`",
@@ -8,13 +13,7 @@ pub fn rollout_restart(namespace: &str, resources: &[String]) -> Result<(), Stri
             namespace
         );
         let output = run_command_output(
-            Command::new("kubectl").args([
-                "rollout",
-                "restart",
-                "-n",
-                namespace,
-                resource,
-            ]),
+            Command::new("kubectl").args(["rollout", "restart", "-n", namespace, resource]),
             "kubectl rollout restart",
         )?;
 
@@ -28,6 +27,7 @@ pub fn rollout_restart(namespace: &str, resources: &[String]) -> Result<(), Stri
         }
     }
 
+    tracing::info!("Completed rollout restarts in namespace `{}`", namespace);
     Ok(())
 }
 
