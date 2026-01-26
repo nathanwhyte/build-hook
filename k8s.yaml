@@ -147,7 +147,7 @@ data:
 
     [projects.code]
     url = "https://github.com/nathanwhyte/nathanwhyte.dev"
-    branch = "k8s"
+    branch = "main"
 
     [[projects.image]]
     repository = "portfolio/portfolio"
