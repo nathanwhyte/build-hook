@@ -19,7 +19,6 @@ async fn main() {
         .init();
 
     // read in env and config, exit if config is invalid in any way
-    tracing::debug!("Loading config...");
     let config = match config::load() {
         Ok(cfg) => cfg,
         Err(e) => {
@@ -36,7 +35,6 @@ async fn main() {
     }
 
     // Initialize buildx builder
-    tracing::debug!("Initializing buildx...");
     if let Err(e) = buildx::initialize() {
         tracing::warn!(
             "Failed to initialize buildx builder: {}. Builds will fail until this is resolved.",
