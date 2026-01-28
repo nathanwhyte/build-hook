@@ -18,7 +18,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // read in env and config
+    // read in env and config, exit if config is invalid in any way
     tracing::debug!("Loading config...");
     let config = match config::load() {
         Ok(cfg) => cfg,

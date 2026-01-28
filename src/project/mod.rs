@@ -5,31 +5,56 @@ use crate::kube;
 use serde::Deserialize;
 use std::path::{Component, Path};
 
+/// Configuration for a buildable project.
 #[derive(Clone, Debug, Deserialize)]
 pub struct ProjectConfig {
+    /// Human-friendly project name.
     name: String,
+    /// Unique project slug used for routing.
+    /// Router expects requests at "/{slug}", e.g. https://build-hook.example.com/my-project
     slug: String,
+    /// Source repository configuration.
+    /// Can be public or private, but private repos require setting up a GitHub token.
     code: CodeConfig,
+    /// Container image build definitions.
+    /// Supports one or more images to be built from the same repository.
     image: Vec<ImageConfig>,
+    /// Kubernets deployment targets to restart after builds succeed.
     deployments: DeploymentConfig,
 }
 
+/// Code repository settings for a project.
 #[derive(Clone, Debug, Deserialize)]
 pub struct CodeConfig {
+    /// URL (https) to the project's GitHub repository.
     url: String,
+    /// Target branch to pull code from.
     branch: String,
 }
 
+/// Image build configuration for a project.
 #[derive(Clone, Debug, Deserialize)]
 pub struct ImageConfig {
+    /// Repository path under the configured registry.
+    /// e.g. "my-org/my-app" for an image tagged as "gcr.io/my-org/my-app:latest"
     repository: String,
+    /// Dockerfile path relative to the repo root.
+    ///
+    /// If the Dockerfile is in the repo root, this should be just "Dockerfile".
+    /// If it's in a subdirectory, specify the relative path, e.g. "services/api/Dockerfile".
     location: String,
+    /// Tag applied to the built image, e.g. "latest" or "v1.2.3".
     tag: String,
 }
 
+/// Kubernetes deployment restart configuration.
 #[derive(Clone, Debug, Deserialize)]
 pub struct DeploymentConfig {
+    /// Kubernetes namespace where the resources are deployed.
     namespace: String,
+    /// Array of resource names to restart once builds succeed.
+    ///
+    /// Must be written as "<resource_type>/<resource_name>", e.g. "deployment/my-app" or "statefulset/my-db".
     resources: Vec<String>,
 }
 
