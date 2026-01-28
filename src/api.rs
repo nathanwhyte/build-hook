@@ -63,7 +63,7 @@ pub async fn start(config: config::HookConfig, github_token: String) {
 
     tracing::info!("Server starting on 0.0.0.0:3000");
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
