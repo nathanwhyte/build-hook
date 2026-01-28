@@ -1,4 +1,4 @@
-# build-hook
+# 🪝 build-hook
 
 Small Rust service that exposes a build hook API over HTTP using [axum](https://docs.rs/axum/latest/axum/index.html).
 It authenticates requests with bearer tokens and builds container images
