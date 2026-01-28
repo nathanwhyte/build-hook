@@ -5,4 +5,9 @@ config.toml
 
 # ingore build cache
 cache/
+
+# ignore Kubernetes secrets
 k8s.secrets.yaml
+
+# ignore minikube k8s spec
+k8s.minikube.yaml
