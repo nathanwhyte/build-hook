@@ -80,3 +80,12 @@ resources = ["deployment/web", "deployment/api"]
 - `projects.deployments.resources`: Kubernetes resources to restart (format: `type/name`).
 
 _Rust Docs page coming soon..._
+
+## Deployment
+
+- Check [`k8s.yaml`](k8s.yaml) for the main deployment, service, and RBAC setup.
+- Use [`k8s.secrets.template.yaml`](k8s.secrets.template.yaml) as a template for creating secrets.
+
+### Other Notes
+- The API expects `config.toml` to be mounted at `/app/config.toml`.
+- If you don't use Cloudflare Tunnels, you'll need to set up another way to expose the service over HTTPS.
