@@ -246,6 +246,70 @@ spec:
       name: http
 
 ---
+# BuildKit daemon for remote buildx driver
+# This avoids cgroup v2 exec issues with the kubernetes driver
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buildkitd
+  namespace: build
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: buildkitd
+  template:
+    metadata:
+      labels:
+        app: buildkitd
+    spec:
+      serviceAccountName: buildx-builder
+      containers:
+        - name: buildkitd
+          image: moby/buildkit:buildx-stable-1
+          args:
+            - --addr
+            - tcp://0.0.0.0:1234
+            - --addr
+            - unix:///run/buildkit/buildkitd.sock
+            - --allow-insecure-entitlement=network.host
+          ports:
+            - containerPort: 1234
+              name: buildkit
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: docker-config
+              mountPath: /root/.docker/config.json
+              subPath: .dockerconfigjson
+              readOnly: true
+          resources:
+            requests:
+              cpu: "2"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+      volumes:
+        - name: docker-config
+          secret:
+            secretName: registry-credentials
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildkitd
+  namespace: build
+spec:
+  selector:
+    app: buildkitd
+  ports:
+    - port: 1234
+      targetPort: 1234
+      name: buildkit
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -38,4 +38,22 @@ Use this file as the local instructions for agents working in this repo.
 - `src/api.rs`: routing, healthcheck, build-hook handler
 - `src/auth.rs`: auth middleware and token parsing
 - `src/config.rs`: config schema, validation, and logging
+- `src/buildx.rs`: Docker Buildx builder initialization and management
+- `src/project/image.rs`: image building logic using buildx
 - `config.toml`: runtime configuration
+
+## BuildKit architecture
+
+The service uses Docker Buildx with the **remote driver** to connect to a BuildKit daemon
+deployed separately in Kubernetes. This architecture avoids cgroup v2 exec issues that occur
+with the `kubernetes` driver on systems using containerd with cgroup v2.
+
+### Components
+- `buildkitd` Deployment: Runs the BuildKit daemon with TCP listener on port 1234
+- `buildkitd` Service: Exposes buildkitd at `tcp://buildkitd.build.svc.cluster.local:1234`
+- `hook` Deployment: The build-hook API that uses the remote driver to connect to buildkitd
+
+### Why remote driver?
+The Kubernetes driver for Buildx uses `kubectl exec` to communicate with BuildKit pods.
+On clusters with cgroup v2 and containerd, exec operations into privileged containers
+fail with cgroup path errors. The remote driver uses TCP instead, avoiding the exec issue.
