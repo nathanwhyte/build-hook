@@ -68,6 +68,8 @@ fn spawn_build(
             "builder",
             "--cache-from",
             &format!("type=registry,ref={}", image_tag),
+            "--cache-to",
+            "type=inline",
             "--push",
             "-t",
             image_tag,
