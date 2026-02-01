@@ -158,6 +158,23 @@ data:
     namespace = "portfolio"
     resources = ["deployment/phx"]
 
+    [[projects]]
+    name = "Glossary"
+    slug = "glossary"
+
+    [projects.code]
+    url = "https://github.com/nathanwhyte/glossary"
+    branch = "main"
+
+    [[projects.image]]
+    repository = "glossary/glossary"
+    location = "Dockerfile"
+    tag = "latest"
+
+    [projects.deployments]
+    namespace = "glossary"
+    resources = ["deployment/glossary"]
+
 ---
 apiVersion: apps/v1
 kind: Deployment
