@@ -40,7 +40,15 @@ pub fn load() -> Result<HookConfig, String> {
     let file_string = std::fs::read_to_string("config.toml")
         .map_err(|_| "Could not read config.toml file!".to_string())?;
 
-    let config_file: ConfigFile = toml::from_str(&file_string)
+    load_from_str(&file_string)
+}
+
+/// Parse and validate configuration from a TOML string.
+///
+/// Split out from `load` so configuration can be exercised in tests without
+/// depending on the process working directory.
+pub fn load_from_str(file_string: &str) -> Result<HookConfig, String> {
+    let config_file: ConfigFile = toml::from_str(file_string)
         .map_err(|e| format!("Could not parse config.toml file: {}", e))?;
 
     validate(&config_file)?;
