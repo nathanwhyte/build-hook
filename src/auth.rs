@@ -6,6 +6,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use sha2::{Digest, Sha256};
 use subtle::{Choice, ConstantTimeEq};
 use tokio::task_local;
 
@@ -23,7 +24,22 @@ task_local! {
 /// meant a deployment missing the secret started cleanly, served `/health` with
 /// a 200, and only failed when someone actually asked for a build. Loading here
 /// turns that misconfiguration into a startup failure you cannot miss.
-pub struct BearerTokens(Vec<String>);
+/// Stores SHA-256 digests, not the tokens themselves.
+///
+/// Comparing digests rather than raw tokens is what makes the check genuinely
+/// constant time: `ct_eq` on slices returns early when the lengths differ, so
+/// comparing raw tokens of differing lengths would let an attacker probing
+/// candidate lengths infer which token lengths are configured. Every digest is
+/// exactly 32 bytes, so every comparison does the same work.
+///
+/// Hashing the candidate is not itself length-independent — a longer candidate
+/// takes more compression blocks — but that only reveals the length of the
+/// value the attacker already chose. It leaks nothing about the configured
+/// tokens.
+///
+/// Keeping digests also means the plaintext tokens are not retained in the
+/// process after startup.
+pub struct BearerTokens(Vec<[u8; 32]>);
 
 impl BearerTokens {
     pub fn from_env() -> Result<Self, String> {
@@ -38,34 +54,43 @@ impl BearerTokens {
     /// environment -- `cargo test` runs tests in parallel threads sharing one
     /// env, so env-mutating tests race and fail nondeterministically.
     pub fn parse(raw: &str) -> Result<Self, String> {
-        let tokens: Vec<String> = raw
+        let digests: Vec<[u8; 32]> = raw
             .split(',')
-            .map(|s| s.trim().to_string())
+            .map(|s| s.trim())
             .filter(|s| !s.is_empty())
+            .map(Self::digest)
             .collect();
 
-        if tokens.is_empty() {
+        if digests.is_empty() {
             return Err("BEARER_TOKENS is set but contains no non-empty tokens".to_string());
         }
 
-        Ok(Self(tokens))
+        Ok(Self(digests))
+    }
+
+    fn digest(token: &str) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        hasher.finalize().into()
     }
 
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Constant-time membership test.
+    /// Constant-time membership test over fixed-length digests.
     ///
     /// `Vec::contains` compares with `String`'s `PartialEq`, which short-circuits
     /// on the first differing byte and so leaks how much of a guess was correct.
-    /// Every configured token is compared here, and the results are accumulated
-    /// into a `Choice` rather than a `bool`, so neither the byte comparison nor
-    /// the loop exits early on a match.
+    /// Here every configured digest is compared against the candidate's, always
+    /// over the same 32 bytes, and the results accumulate into a `Choice` rather
+    /// than a `bool` — so neither an individual comparison nor the loop exits
+    /// early on a match.
     fn contains(&self, candidate: &str) -> bool {
+        let candidate = Self::digest(candidate);
         let mut hit = Choice::from(0u8);
-        for token in &self.0 {
-            hit |= token.as_bytes().ct_eq(candidate.as_bytes());
+        for digest in &self.0 {
+            hit |= digest.ct_eq(&candidate);
         }
         bool::from(hit)
     }
@@ -158,6 +183,32 @@ mod tests {
         assert_eq!(t.len(), 2);
         assert!(t.contains("alpha"));
         assert!(!t.contains(""));
+    }
+
+    #[test]
+    fn tokens_of_differing_lengths_are_all_compared_over_32_bytes() {
+        // Regression guard for the PR #2 review finding: comparing raw tokens
+        // makes ct_eq return early on a length mismatch, so probing candidate
+        // lengths would reveal which lengths are configured. Everything is
+        // hashed to a fixed width first, so a short and a long configured token
+        // are indistinguishable in the work done per comparison.
+        let t = tokens("short,a-considerably-longer-configured-token");
+        assert!(t.contains("short"));
+        assert!(t.contains("a-considerably-longer-configured-token"));
+        assert!(!t.contains("s"));
+        assert!(!t.contains("a-considerably-longer-configured-toke"));
+        assert!(!t.contains("a-considerably-longer-configured-tokenX"));
+    }
+
+    #[test]
+    fn plaintext_tokens_are_not_retained() {
+        // The struct holds digests; a raw token must not survive in it.
+        let t = tokens("supersecrettoken");
+        let raw = b"supersecrettoken";
+        assert!(
+            !t.0.iter().any(|d| d.starts_with(&raw[..4])),
+            "digest storage should not contain the plaintext token"
+        );
     }
 
     #[test]
