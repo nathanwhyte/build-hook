@@ -108,7 +108,10 @@ data:
     [[projects.image]]
     repository = "coach/coach"
     location = "Dockerfile"
-    tag = "release"
+    # :latest, not :release -- coach/deployment/credit-coach runs :latest, and
+    # coach/coach:release does not exist in the registry at all, so building
+    # :release pushed a tag no deployment ever pulled.
+    tag = "latest"
 
     [[projects.image]]
     repository = "coach/scrub"
