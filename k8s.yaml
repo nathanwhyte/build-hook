@@ -130,12 +130,15 @@ data:
     [[projects.image]]
     repository = "equal-risk/rails"
     location = "Dockerfile"
-    tag = "release"
+    # :test, not :release -- equal-risk/deployment/equal-risk-rails runs :test,
+    # so building :release pushed an image no deployment ever pulled.
+    tag = "test"
 
     [[projects.image]]
     repository = "equal-risk/math"
     location = "api/Dockerfile"
-    tag = "release"
+    # :test, matching equal-risk/deployment/equal-risk-math.
+    tag = "test"
 
     [projects.deployments]
     namespace = "equal-risk"
